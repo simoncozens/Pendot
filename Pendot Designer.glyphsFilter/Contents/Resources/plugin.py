@@ -3,7 +3,7 @@ from __future__ import division, print_function, unicode_literals
 import objc
 from GlyphsApp import Glyphs, GSPath, GSNode, distance, OFFCURVE, CURVE
 from GlyphsApp.plugins import FilterWithDialog
-from Foundation import NSPoint
+from Foundation import NSPoint, NSMutableArray
 from AppKit import NSControlStateValueOn, NSControlStateValueOff
 import math
 
@@ -185,6 +185,7 @@ class PendotDesigner(FilterWithDialog):
 
         # Trigger redraw
         self.update()
+
     # Actual filter
     @objc.python_method
     def filter(self, layer, inEditView, customParameters):
@@ -223,3 +224,13 @@ class PendotDesigner(FilterWithDialog):
     def __file__(self):
         """Please leave this method unchanged"""
         return __file__
+
+    def confirmDialog_(self, sender):
+        # On confirm, put shadowlayers back
+        ShadowLayers = self.valueForKey_("shadowLayers")
+        Layers = self.valueForKey_("layers")
+        checkSelection = True
+        for k in range(len(ShadowLayers)):
+            ShadowLayer = ShadowLayers[k]
+            Layer = Layers[k]
+            Layer.setShapes_(NSMutableArray.alloc().initWithArray_copyItems_(ShadowLayer.pyobjc_instanceMethods.shapes(), True))
