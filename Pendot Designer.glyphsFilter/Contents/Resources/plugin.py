@@ -36,6 +36,8 @@ def isForced(node):
     )
 
 
+# This is just for display purposes; for the real thing we'll use a
+# component
 def makeCircle(center, radius):
     x, y = center
     path = GSPath()
@@ -81,7 +83,8 @@ def findCenters(path, params, centers):
         return
     centers.append({"pos": segs[0][0], "forced": True})
     centers.append({"pos": segs[-1].lastPoint(), "forced": True})
-    # Adjust space such that end point falls at integer multiple
+    # Adjust space such that end point falls at integer multiples
+    # XXX We should add some "flex" in here to push it looser/tighter
     if centerSpace < plen:
         centerSpace = plen / math.ceil(plen / centerSpace)
     for pathtime, seg in enumerate(segs):
