@@ -8,7 +8,12 @@ from AppKit import NSControlStateValueOn, NSControlStateValueOff
 import math
 
 KEY = "co.uk.corvelsoftware.Dotter"
-PARAMS = ["dotSize", "dotSpacing", "preventOverlaps", "splitPaths"]
+PARAMS = {
+ "dotSize": 15,
+ "dotSpacing": 15,
+ "preventOverlaps": True,
+ "splitPaths": False
+}
 MAGIC_NUMBER = 0.593667
 
 def set_locally_forced(node):
@@ -174,20 +179,26 @@ class PendotDesigner(FilterWithDialog):
         # Load dialog from .nib (without .extension)
         self.loadNib("IBdialog", __file__)
 
+    @objc.python_method
+    def get_param(self, name):
+        # Set default value
+        if KEY not in Glyphs.font.userData:
+            Glyphs.font.userData[KEY] = dict(PARAMS)
+        return Glyphs.font.userData[KEY][name]
+
+    @objc.python_method
+    def set_param(self, name, value):
+        self.get_param(name)  # Establish defaults
+        Glyphs.font.userData[KEY][name] = value
+
     # On dialog show
     @objc.python_method
     def start(self):
-        # Set default value
-        Glyphs.registerDefault(f"{KEY}.dotSize", 15.0)
-        Glyphs.registerDefault(f"{KEY}.dotSpacing", 15.0)
-        Glyphs.registerDefault(f"{KEY}.preventOverlaps", True)
-        Glyphs.registerDefault(f"{KEY}.splitPaths", False)
-
         # Set value of text field
-        self.dotSizeField.setStringValue_(Glyphs.defaults[f"{KEY}.dotSize"])
-        self.dotSpacingField.setStringValue_(Glyphs.defaults[f"{KEY}.dotSpacing"])
-        self.preventOverlapsButton.setState_(Glyphs.defaults[f"{KEY}.preventOverlaps"])
-        self.splitPathsButton.setState_(Glyphs.defaults[f"{KEY}.splitPaths"])
+        self.dotSizeField.setStringValue_(self.get_param("dotSize"))
+        self.dotSpacingField.setStringValue_(self.get_param("dotSpacing"))
+        self.preventOverlapsButton.setState_(self.get_param("preventOverlaps"))
+        self.splitPathsButton.setState_(self.get_param("splitPaths"))
 
         # Set focus to text field
         self.dotSizeField.becomeFirstResponder()
@@ -196,19 +207,10 @@ class PendotDesigner(FilterWithDialog):
     @objc.IBAction
     def setParams_(self, sender):
         # Store value coming in from dialog
-        Glyphs.defaults[f"{KEY}.dotSize"] = self.dotSizeField.floatValue()
-        Glyphs.defaults[f"{KEY}.dotSpacing"] = self.dotSpacingField.floatValue()
-        Glyphs.defaults[f"{KEY}.preventOverlaps"] = self.preventOverlapsButton.state() == NSControlStateValueOn
-        Glyphs.defaults[f"{KEY}.splitPaths"] = self.splitPathsButton.state() == NSControlStateValueOn
-
-        # Trigger redraw
-        self.update()
-
-    # Action triggered by UI
-    @objc.IBAction
-    def setDotSpacing_(self, sender):
-        # Store value coming in from dialog
-        Glyphs.defaults[f"{KEY}.dotSpacing"] = sender.floatValue()
+        self.set_param("dotSize", self.dotSizeField.floatValue())
+        self.set_param("dotSpacing", self.dotSpacingField.floatValue())
+        self.set_param("preventOverlaps", self.preventOverlapsButton.state() == NSControlStateValueOn)
+        self.set_param("splitPaths", self.splitPathsButton.state() == NSControlStateValueOn)
 
         # Trigger redraw
         self.update()
@@ -218,11 +220,11 @@ class PendotDesigner(FilterWithDialog):
     def filter(self, layer, inEditView, customParameters):
         layer.decomposeComponents()
         params = {}
-        for param in PARAMS:
+        for param in PARAMS.keys():
             if param in customParameters:
                 params[param] = customParameters[param]
             else:
-                params[param] = float(Glyphs.defaults[f"{KEY}.{param}"])
+                params[param] = float(self.get_param(param))
 
         centers = []
         if params["splitPaths"]:
@@ -241,12 +243,12 @@ class PendotDesigner(FilterWithDialog):
     @objc.python_method
     def generateCustomParameter(self):
         params = [self.__class__.__name__]
-        for param in PARAMS:
+        for param in PARAMS.keys():
             params.append(
                 "%s: %s"
                 % (
                     param,
-                    Glyphs.defaults[f"{KEY}.{param}"],
+                    self.get_param(param),
                 )
             )
         return "; ".join(params)
