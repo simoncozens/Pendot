@@ -11,9 +11,29 @@ KEY = "co.uk.corvelsoftware.Dotter"
 PARAMS = ["dotSize", "dotSpacing", "preventOverlaps", "splitPaths"]
 MAGIC_NUMBER = 0.593667
 
+def set_locally_forced(node):
+    if KEY not in node.userData:
+        node.userData[KEY] = {}
+    node.userData[KEY]["locally_forced"] = True
+
+def clear_locally_forced(node):
+    # print("Clearing force from ", node)
+    if KEY in node.userData:
+        del node.userData[KEY]["locally_forced"]
+        if not node.userData[KEY]:
+            del node.userData[KEY]
+    # print(node.userData)
+
+def is_start_end(node):
+    return node.index == 0 or node.index == len(node.parent.nodes) - 1
 
 def isForced(node):
-    return KEY in node.userData and node.userData[KEY]["forced"]
+    # if is_start_end(node):
+    #     return True
+    return KEY in node.userData and (
+        node.userData[KEY].get("forced")
+        or node.userData[KEY].get("locally_forced")
+    )
 
 
 def makeCircle(center, radius):
@@ -95,21 +115,22 @@ def centersToPaths(centers, params):
 
 def insertPointInPathUnlessThere(path, pt):
     newpoint, pathtime = path.nearestPointOnPath_pathTime_(pt, None)
+    # print("Intersection / pathtime was %s, %s, %s" % (pt, pathtime, path.nodes))
+    # print("newpoint was %s" % newpoint)
     if pathtime.is_integer():
         nearest = path.nearestNodeWithPathTime_(pathtime)
-        if nearest:
-            nearest.userData[KEY] = {"forced": True}
-        else:
-            print(f"There doesn't seem to be a node at {pt} ({pathtime}) in {path}")
-        return
+        if nearest: # and not isForced(nearest) and nearest.type != OFFCURVE:
+            # print("Point already, forcing: %s" % nearest)
+            set_locally_forced(nearest)
     nearest = path.nearestNodeWithPathTime_(pathtime)
-    if nearest and distance(nearest.position, pt) < 1.0:
+    if nearest and distance(nearest.position, pt) < 1.0 and nearest.type != OFFCURVE:
         return
     node = path.insertNodeWithPathTime_(pathtime)
     if not node:
         print(f"Couldn't insert node at {pt} ({pathtime}) in {path}")
         return
-    node.userData[KEY] = {"forced": True}
+    # print("Inserted, forcing: %s" % node)
+    set_locally_forced(node)
 
 
 def splitPathsAtIntersections(paths):
@@ -125,6 +146,9 @@ def splitPathsAtIntersections(paths):
                     # Let's see if it's actually a problem first.
                     intersections = s1.intersectionPoints_(s2)
                     for pt in intersections:
+                        # print("Intersection between %s/%s and %s/%s at %s" % (
+                        #     p1,s1,p2,s2,pt)
+                        # )
                         insertPointInPathUnlessThere(p1, pt)
                         insertPointInPathUnlessThere(p2, pt)
 
@@ -207,6 +231,9 @@ class PendotDesigner(FilterWithDialog):
 
         layer.shapes = new_paths + list(layer.components)
         layer.cleanUpPaths()
+        for path in layer.paths:
+            for node in path.nodes:
+                clear_locally_forced(node)
 
     @objc.python_method
     def generateCustomParameter(self):
