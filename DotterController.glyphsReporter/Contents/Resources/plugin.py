@@ -1,10 +1,14 @@
 from __future__ import division, print_function, unicode_literals
 import objc
+from AppKit import NSMenuItem
 from GlyphsApp import Glyphs, GSNode, ONSTATE, OFFSTATE, MIXEDSTATE, OFFCURVE
 from GlyphsApp.plugins import ReporterPlugin
 from GlyphsApp.drawingTools import stroke, oval, fill, strokeWidth
 
 KEY = "co.uk.corvelsoftware.Dotter"
+
+def is_start_end(node):
+    return node.index == 0 or node.index == len(node.parent.nodes) - 1
 
 
 class DotterController(ReporterPlugin):
@@ -19,6 +23,12 @@ class DotterController(ReporterPlugin):
         if not selectedNodes:
             return []
 
+        menuname = "Force dot here"
+
+        action = self.toggleForced_
+        if all(is_start_end(n) for n in selectedNodes):
+            action = None
+
         for node in selectedNodes:
             if self.getForced(node=node):
                 states.append(ONSTATE)
@@ -30,15 +40,22 @@ class DotterController(ReporterPlugin):
         elif states and not all(state == OFFSTATE for state in states):
             finalstate = MIXEDSTATE
         return [
-            {"name": "Force dot here", "action": self.toggleForced_, "state": finalstate}
+            {"name": menuname, "action": action, "state": finalstate}
         ]
+
 
     @objc.python_method
     def getForced(self, sender=None, node=None):
+        if KEY in node.userData:
+            our_dict = node.userData[KEY]
+            if our_dict.get("locally_forced", False):
+                return "locally_forced"
+            if our_dict.get("forced", False):
+                return "forced"
         # First nodes and last nodes are always forced
-        if node.index == 0 or node.index == len(node.parent.nodes) - 1:
-            return True
-        return KEY in node.userData and node.userData[KEY]["forced"]
+        if is_start_end(node):
+            return "startend"
+        return None
 
     @objc.python_method
     def setForced(self, sender=None, node=None, value=None):
@@ -50,7 +67,7 @@ class DotterController(ReporterPlugin):
         if not Glyphs.font.selectedLayers:
             return []
         layer = Glyphs.font.selectedLayers[0]
-        selectedNodes = filter(lambda x: isinstance(x, GSNode) and x.type != OFFCURVE, layer.selection)
+        selectedNodes = list(filter(lambda x: isinstance(x, GSNode) and x.type != OFFCURVE, layer.selection))
         return selectedNodes
 
     @objc.python_method
@@ -59,7 +76,6 @@ class DotterController(ReporterPlugin):
             return []
         layer = Glyphs.font.selectedLayers[0]
         fill(None)
-        stroke(0.8, 0.2, 0.2, 1.0)
         handSizeInPoints = 5 + Glyphs.handleSize * 5.0  # (= 5.0 or 7.5 or 10.0)
         scaleCorrectedHandleSize = handSizeInPoints / Glyphs.font.currentTab.scale
         strokeWidth(scaleCorrectedHandleSize / 5.0)
@@ -67,7 +83,17 @@ class DotterController(ReporterPlugin):
             if path.closed:
                 continue
             for node in path.nodes:
-                if not self.getForced(node=node):
+                if not node.parent:
+                    print("Dead node %s in %s" % (node, path))
+                    continue
+                forcetype = self.getForced(node=node)
+                if forcetype == "forced":
+                    stroke(0.8, 0.2, 0.2, 1.0)
+                elif forcetype == "locally_forced":
+                    stroke(204/255, 134/255, 14/255, 1.0)
+                elif forcetype == "startend":
+                    stroke(5/255, 166/255, 93/255, 1.0)
+                else:
                     continue
                 oval(
                     node.position.x - scaleCorrectedHandleSize * 0.5,
@@ -78,6 +104,8 @@ class DotterController(ReporterPlugin):
 
     def toggleForced_(self, sender=None):
         for node in self.selectedNodes():
+            if is_start_end(node):
+                continue
             self.setForced(node=node, value=not self.getForced(node=node))
 
     @objc.python_method
