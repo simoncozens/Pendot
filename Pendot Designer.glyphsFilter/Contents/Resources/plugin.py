@@ -189,6 +189,7 @@ class PendotDesigner(FilterWithDialog):
     # Actual filter
     @objc.python_method
     def filter(self, layer, inEditView, customParameters):
+        layer.decomposeComponents()
         params = {}
         for param in PARAMS:
             if param in customParameters:
