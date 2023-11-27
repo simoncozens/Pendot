@@ -5,7 +5,7 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
-        <customObject id="-2" userLabel="File's Owner" customClass="Dotter">
+        <customObject id="-2" userLabel="File's Owner" customClass="PendotDesigner">
             <connections>
                 <outlet property="dialog" destination="1" id="kzC-yw-bol"/>
                 <outlet property="dotSizeField" destination="vfg-c5-0Yw" id="zWe-by-PDL"/>

@@ -129,7 +129,7 @@ def splitPathsAtIntersections(paths):
                         insertPointInPathUnlessThere(p2, pt)
 
 
-class Dotter(FilterWithDialog):
+class PendotDesigner(FilterWithDialog):
     # Definitions of IBOutlets
 
     # The NSView object from the User Interface. Keep this here!
@@ -143,7 +143,7 @@ class Dotter(FilterWithDialog):
 
     @objc.python_method
     def settings(self):
-        self.menuName = "Dotter"
+        self.menuName = "Pendot Designer"
         # Load dialog from .nib (without .extension)
         self.loadNib("IBdialog", __file__)
 
