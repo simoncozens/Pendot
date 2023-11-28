@@ -125,6 +125,7 @@ def makeCircle(center: TuplePoint, radius: float):
 def splitAtForcedNode(path: GSPath):
     # Iterator, yields GSPaths
     new_path = GSPath()
+    new_path.closed = False
     for n in path.nodes:
         new_path.nodes.append(n)
         if isForced(n):
