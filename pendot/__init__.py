@@ -19,8 +19,6 @@ def dot_font(font: GSFont, params: dict = {}):
             logger.info(f"Using default value {param}={params[param]}")
             params[param] = PARAMS[param]
     for glyph in progress(font.glyphs):
-        if glyph.name != "J":
-            continue
         for layer in glyph.layers:
             doDotter(layer, params)
     return font
