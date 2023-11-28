@@ -2,9 +2,9 @@ import math
 from typing import Union, NamedTuple
 
 try:
-    from GlyphsApp import GSPath, GSNode, OFFCURVE, CURVE, LINE
+    from GlyphsApp import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE
 except:
-    from glyphsLib.classes import GSPath, GSNode, OFFCURVE, CURVE, LINE
+    from glyphsLib.classes import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE
 from fontTools.misc.bezierTools import (
     Intersection,
     segmentSegmentIntersections,
