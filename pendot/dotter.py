@@ -235,6 +235,8 @@ def splitPathsAtIntersections(paths):
                     # Let's see if it's actually a problem first.
                     intersections = findIntersections(s1, s2)
                     for i in intersections:
+                        if not (i.t1 >= 0 and i.t1 <= 1) or not (i.t2 >= 0 and i.t2 <= 1):
+                            continue
                         print(
                             "Intersection between %s/%s and %s/%s at %s"
                             % (p1, s1, p2, s2, i.pt)
