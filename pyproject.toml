@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pendot"
+description = "Utility for creating dotted and stroked handwriting fonts"
+readme = "README.md"
+dynamic = ["version"]
+authors = [
+  { name = "Simon Cozens", email = "simon@simon-cozens.org" }
+]
+classifiers = [
+  'Environment :: Console',
+  'Topic :: Text Processing :: Fonts',
+]
+dependencies = [
+  'glyphsLib >= 6.6.0'
+]
+
+[project.scripts]
+pendot = "pendot.__main__:main"
+
+[tool.setuptools_scm]
+write_to = "pendot/_version.py"
