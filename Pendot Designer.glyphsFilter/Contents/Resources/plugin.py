@@ -76,6 +76,7 @@ class PendotDesigner(FilterWithDialog):
             else:
                 params[param] = float(self.get_param(param))
 
+        layer.decomposeComponents()
         doDotter(layer, params)
         layer.cleanUpPaths()
 

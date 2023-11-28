@@ -2,9 +2,9 @@ import math
 from typing import Union, NamedTuple
 
 try:
-    from GlyphsApp import GSPath, GSNode, OFFCURVE, CURVE
+    from GlyphsApp import GSPath, GSNode, OFFCURVE, CURVE, LINE
 except:
-    from glyphsLib.classes import GSPath, GSNode, OFFCURVE, CURVE
+    from glyphsLib.classes import GSPath, GSNode, OFFCURVE, CURVE, LINE
 from fontTools.misc.bezierTools import (
     Intersection,
     segmentSegmentIntersections,
@@ -89,12 +89,14 @@ def arclength(seg: Union[Segment, TupleSegment], approx=False) -> float:
     return calcCubicArcLength(*seg)
 
 
-def splitSegment(seg: TupleSegment, t: float) -> TupleSegment:
+def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegment]:
     if len(seg) == 2:
-        return [seg[0], linePointAtT(*seg, t)]
-    left, _right = splitCubicAtT(*seg, t)
-    return left
+        midpoint = linePointAtT(*seg, t)
+        return [seg[0], midpoint], [midpoint, seg[1]] 
+    return splitCubicAtT(*seg, t)
 
+def pathLength(path: GSPath) -> float:
+    return sum(arclength(seg) for seg in path.segments)
 
 # This is just for display purposes; for the real thing we'll use a
 # component
@@ -137,7 +139,7 @@ def findCenters(path: GSPath, params: dict, centers: list[Center]):
     lengthSoFar = 0
     LIMIT = 1000
     lastLength = 0
-    plen = path.length()
+    plen = pathLength(path)
     centerSpace = params["dotSize"] + params["dotSpacing"]
     if not segs or not segs[0]:
         return
@@ -149,7 +151,7 @@ def findCenters(path: GSPath, params: dict, centers: list[Center]):
         centerSpace = plen / math.ceil(plen / centerSpace)
     for pathtime, seg in enumerate(segs):
         for t in range(1, LIMIT):
-            left = splitSegment(seg, t / LIMIT)
+            left, _right = splitSegment(seg, t / LIMIT)
             lengthHere = lengthSoFar + arclength(left, approx=True)
             if lengthHere > lastLength + centerSpace:
                 centers.append(Center(pos=left[-1], forced=False))
@@ -176,24 +178,47 @@ def centersToPaths(centers: list[Center], params):
     return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
 
 
-def insertPointInPathUnlessThere(path, pt):
-    newpoint, pathtime = path.nearestPointOnPath_pathTime_(pt, None)
-    # print("Intersection / pathtime was %s, %s, %s" % (pt, pathtime, path.nodes))
-    # print("newpoint was %s" % newpoint)
-    if pathtime.is_integer():
-        nearest = path.nearestNodeWithPathTime_(pathtime)
-        if nearest:  # and not isForced(nearest) and nearest.type != OFFCURVE:
-            # print("Point already, forcing: %s" % nearest)
-            set_locally_forced(nearest)
-    nearest = path.nearestNodeWithPathTime_(pathtime)
-    if nearest and distance(nearest.position, pt) < 1.0 and nearest.type != OFFCURVE:
-        return
-    node = path.insertNodeWithPathTime_(pathtime)
-    if not node:
-        print(f"Couldn't insert node at {pt} ({pathtime}) in {path}")
-        return
-    # print("Inserted, forcing: %s" % node)
-    set_locally_forced(node)
+def insertPointInPathUnlessThere(path, pt: TuplePoint):
+    node: GSNode
+    for node in path.nodes:
+        if distance( (node.position.x, node.position.y), pt) < 1.0:
+            set_locally_forced(node)
+            return
+    # Find nearest point on nearest segment
+    min_dist = 100000000
+    insertion_point_index = None
+    new_left_right: tuple[TupleSegment, TupleSegment] = None
+    TICKS = 1000
+    index = 0
+    for seg in path.segments:
+        seg = seg_to_tuples(seg)
+        for t in range(1, TICKS):
+            left, right = splitSegment(seg, t / TICKS)
+            dist = distance(left[-1], pt)
+            if dist < min_dist:
+                min_dist = dist
+                new_left_right = left + right[1:]
+                insertion_point_index = index
+        index += len(seg) - 1
+    if insertion_point_index is None:
+        raise ValueError("Point not on path...")
+    # print("Old path nodes", path.nodes)
+    print("Splitting path at ", pt, " to ", new_left_right)
+    # print("Insertion index was ", insertion_point_index)
+    if len(new_left_right) == 3:  # We have split a line
+        node_types = [LINE, LINE, LINE]
+        middle = 1
+    else:
+        node_types = [CURVE, OFFCURVE, OFFCURVE, CURVE, OFFCURVE, OFFCURVE, CURVE]
+        middle = 3
+    nodes_to_insert = [
+        GSNode(x, typ) for x,typ in zip(new_left_right, node_types)
+    ]
+    set_locally_forced(nodes_to_insert[middle])
+    newnodes = list(path.nodes)
+    newnodes[insertion_point_index : insertion_point_index+middle+1] = nodes_to_insert
+    path.nodes = newnodes
+    # print("New path nodes", path.nodes)
 
 
 def splitPathsAtIntersections(paths):
@@ -213,12 +238,11 @@ def splitPathsAtIntersections(paths):
                             "Intersection between %s/%s and %s/%s at %s"
                             % (p1, s1, p2, s2, i.pt)
                         )
-                        # insertPointInPathUnlessThere(p1, i.pt)
-                        # insertPointInPathUnlessThere(p2, i.pt)
+                        insertPointInPathUnlessThere(p1, i.pt)
+                        insertPointInPathUnlessThere(p2, i.pt)
 
 
 def doDotter(layer, params):
-    layer.decomposeComponents()
     centers = []
     if params["splitPaths"]:
         splitPathsAtIntersections(layer.paths)
