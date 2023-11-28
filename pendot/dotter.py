@@ -1,27 +1,46 @@
 import math
+from typing import Union, NamedTuple
+
 try:
     from GlyphsApp import GSPath, GSNode, OFFCURVE, CURVE
 except:
     from glyphsLib.classes import GSPath, GSNode, OFFCURVE, CURVE
+from fontTools.misc.bezierTools import (
+    Intersection,
+    segmentSegmentIntersections,
+    approximateCubicArcLength,
+    calcCubicArcLength,
+    linePointAtT,
+    splitCubicAtT,
+)
+
+Segment = Union["GSPathSegment", list[GSNode]]
+TuplePoint = tuple[float, float]
+
+
+class Center(NamedTuple):
+    pos: TuplePoint
+    forced: bool
+
+
+TupleSegment = list[TuplePoint]
 
 KEY = "co.uk.corvelsoftware.Dotter"
-PARAMS = {
- "dotSize": 15,
- "dotSpacing": 15,
- "preventOverlaps": True,
- "splitPaths": False
-}
+PARAMS = {"dotSize": 15, "dotSpacing": 15, "preventOverlaps": True, "splitPaths": False}
 MAGIC_NUMBER = 0.593667
 
-def distance(a, b):
-    return math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2)
 
-def set_locally_forced(node):
+def distance(a: TuplePoint, b: TuplePoint) -> float:
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
+
+def set_locally_forced(node: GSNode) -> None:
     if KEY not in node.userData:
         node.userData[KEY] = {}
     node.userData[KEY]["locally_forced"] = True
 
-def clear_locally_forced(node):
+
+def clear_locally_forced(node: GSNode) -> None:
     # print("Clearing force from ", node)
     if KEY in node.userData:
         del node.userData[KEY]["locally_forced"]
@@ -29,21 +48,57 @@ def clear_locally_forced(node):
             del node.userData[KEY]
     # print(node.userData)
 
-def is_start_end(node):
+
+def is_start_end(node: GSNode) -> bool:
     return node.index == 0 or node.index == len(node.parent.nodes) - 1
 
-def isForced(node):
+
+def isForced(node: GSNode) -> bool:
     # if is_start_end(node):
     #     return True
     return KEY in node.userData and (
-        node.userData[KEY].get("forced")
-        or node.userData[KEY].get("locally_forced")
+        node.userData[KEY].get("forced") or node.userData[KEY].get("locally_forced")
     )
+
+
+# All the curve-handling code here has to work both in Glyphs and glyphsLib.
+# Here are some utility functions to bridge the gap
+def seg_to_tuples(seg: Segment) -> TupleSegment:
+    if type(seg).__name__ == "GSPathSegment":
+        seg = seg.segmentStruct()[0][0 : seg.countOfPoints()]
+    return [(pt.x, pt.y) for pt in seg]
+
+
+def findIntersections(seg1: Segment, seg2: Segment) -> list[Intersection]:
+    seg1 = seg_to_tuples(seg1)
+    seg2 = seg_to_tuples(seg2)
+    return segmentSegmentIntersections(seg1, seg2)
+
+
+def arclength(seg: Union[Segment, TupleSegment], approx=False) -> float:
+    # For GSSegments, we could just return seg.length() here, but we want to
+    # ensure that the same algorithm is used in both Glyphs and
+    # glyphsLib for visual consistency.
+
+    if not isinstance(seg[0], tuple):
+        seg = seg_to_tuples(seg)
+    if len(seg) == 2:
+        return distance(seg[0], seg[1])
+    if approx:
+        return approximateCubicArcLength(*seg)
+    return calcCubicArcLength(*seg)
+
+
+def splitSegment(seg: TupleSegment, t: float) -> TupleSegment:
+    if len(seg) == 2:
+        return [seg[0], linePointAtT(*seg, t)]
+    left, _right = splitCubicAtT(*seg, t)
+    return left
 
 
 # This is just for display purposes; for the real thing we'll use a
 # component
-def makeCircle(center, radius):
+def makeCircle(center: TuplePoint, radius: float):
     x, y = center
     path = GSPath()
     path.nodes.append(GSNode((x - radius * MAGIC_NUMBER, y - radius), OFFCURVE))
@@ -60,12 +115,12 @@ def makeCircle(center, radius):
     path.nodes.append(GSNode((x, y - radius), CURVE))
     path.closed = True
     for ix, node in enumerate(path.nodes):
-        if (ix+1) % 3:
+        if (ix + 1) % 3:
             node.smooth = True
     return path
 
 
-def splitAtForcedNode(path):
+def splitAtForcedNode(path: GSPath):
     # Iterator, yields GSPaths
     new_path = GSPath()
     for n in path.nodes:
@@ -77,8 +132,8 @@ def splitAtForcedNode(path):
     yield new_path
 
 
-def findCenters(path, params, centers):
-    segs = path.segments
+def findCenters(path: GSPath, params: dict, centers: list[Center]):
+    segs = [seg_to_tuples(seg) for seg in path.segments]
     lengthSoFar = 0
     LIMIT = 1000
     lastLength = 0
@@ -86,39 +141,39 @@ def findCenters(path, params, centers):
     centerSpace = params["dotSize"] + params["dotSpacing"]
     if not segs or not segs[0]:
         return
-    centers.append({"pos": segs[0][0], "forced": True})
-    centers.append({"pos": segs[-1].lastPoint(), "forced": True})
+    centers.append(Center(pos=segs[0][0], forced=True))
+    centers.append(Center(pos=segs[-1][-1], forced=True))
     # Adjust space such that end point falls at integer multiples
     # XXX We should add some "flex" in here to push it looser/tighter
     if centerSpace < plen:
         centerSpace = plen / math.ceil(plen / centerSpace)
     for pathtime, seg in enumerate(segs):
         for t in range(1, LIMIT):
-            left, right = seg.splitAtTime_firstHalf_secondHalf_(t / LIMIT, None, None)
-            lengthHere = lengthSoFar + left.length()
+            left = splitSegment(seg, t / LIMIT)
+            lengthHere = lengthSoFar + arclength(left, approx=True)
             if lengthHere > lastLength + centerSpace:
-                centers.append({"pos": left.lastPoint(), "forced": False})
+                centers.append(Center(pos=left[-1], forced=False))
                 lastLength = lengthHere
 
-        lengthSoFar += seg.length()
+        lengthSoFar += arclength(seg)
 
 
-def centersToPaths(centers, params):
+def centersToPaths(centers: list[Center], params):
     if params["preventOverlaps"]:
         newcenters = []
         # Sort, to put forced points first
-        for c in sorted(centers, key=lambda pt: pt["forced"], reverse=True):
+        for c in sorted(centers, key=lambda pt: pt.forced, reverse=True):
             # This could probably be improved...
             ok = True
             for nc in newcenters:
-                if distance(c["pos"], nc) < params["dotSize"]:
+                if distance(c.pos, nc) < params["dotSize"]:
                     ok = False
                     break
             if ok:
-                newcenters.append(c["pos"])
+                newcenters.append(c.pos)
     else:
-        newcenters = [c["pos"] for c in centers]
-    return [makeCircle(c, params["dotSize"]/2) for c in newcenters]
+        newcenters = [c.pos for c in centers]
+    return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
 
 
 def insertPointInPathUnlessThere(path, pt):
@@ -127,7 +182,7 @@ def insertPointInPathUnlessThere(path, pt):
     # print("newpoint was %s" % newpoint)
     if pathtime.is_integer():
         nearest = path.nearestNodeWithPathTime_(pathtime)
-        if nearest: # and not isForced(nearest) and nearest.type != OFFCURVE:
+        if nearest:  # and not isForced(nearest) and nearest.type != OFFCURVE:
             # print("Point already, forcing: %s" % nearest)
             set_locally_forced(nearest)
     nearest = path.nearestNodeWithPathTime_(pathtime)
@@ -152,16 +207,17 @@ def splitPathsAtIntersections(paths):
                 for s2 in p2.segments:
                     # Yes this is O(n^2). Yes I could improve it.
                     # Let's see if it's actually a problem first.
-                    intersections = s1.intersectionPoints_(s2)
-                    for pt in intersections:
-                        # print("Intersection between %s/%s and %s/%s at %s" % (
-                        #     p1,s1,p2,s2,pt)
-                        # )
-                        insertPointInPathUnlessThere(p1, pt)
-                        insertPointInPathUnlessThere(p2, pt)
+                    intersections = findIntersections(s1, s2)
+                    for i in intersections:
+                        print(
+                            "Intersection between %s/%s and %s/%s at %s"
+                            % (p1, s1, p2, s2, i.pt)
+                        )
+                        # insertPointInPathUnlessThere(p1, i.pt)
+                        # insertPointInPathUnlessThere(p2, i.pt)
+
 
 def doDotter(layer, params):
-
     layer.decomposeComponents()
     centers = []
     if params["splitPaths"]:
