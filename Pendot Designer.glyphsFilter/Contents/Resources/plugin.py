@@ -27,6 +27,7 @@ class PendotDesigner(FilterWithDialog):
     @objc.python_method
     def settings(self):
         self.menuName = "Pendot Designer"
+        self.actionButtonLabel = 'Done'  # We don't "apply" anything
         # Load dialog from .nib (without .extension)
         self.loadNib("IBdialog", __file__)
 
