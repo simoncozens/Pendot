@@ -1,4 +1,5 @@
 from .dotter import GSFont, KEY, doDotter, PARAMS
+# from .stroker import doStroker # Not yet!
 from logging import getLogger
 try:
     import tqdm
@@ -23,3 +24,19 @@ def dot_font(font: GSFont, params: dict = {}):
             doDotter(layer, params)
     return font
 
+# This is expected to be used in the Designer for previewing
+def stroke_font(font: GSFont, params: dict = {}):
+    # For now
+    params = {
+        "width": 20,
+        "height": 20,
+        "startcap": "round",
+        "endcap": "round",
+        "jointype": "round",
+        "remove_internal": False,
+        "remove_external": False,
+        "segmentwise": False,
+    }
+    for glyph in progress(font.glyphs):
+        for layer in glyph.layers:
+            doStroker(layer, params)
