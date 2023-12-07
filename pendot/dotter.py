@@ -2,17 +2,27 @@ import math
 from typing import Union, NamedTuple
 
 try:
-    from GlyphsApp import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE
+    from GlyphsApp import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE, Message
 except:
     from glyphsLib.classes import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE
-from fontTools.misc.bezierTools import (
-    Intersection,
-    segmentSegmentIntersections,
-    approximateCubicArcLength,
-    calcCubicArcLength,
-    linePointAtT,
-    splitCubicAtT,
-)
+    import sys
+
+    def Message(message):
+        print(message)
+        sys.exit(1)
+
+try:
+    from fontTools.misc.bezierTools import (
+        Intersection,
+        segmentSegmentIntersections,
+        approximateCubicArcLength,
+        calcCubicArcLength,
+        linePointAtT,
+        splitCubicAtT,
+    )
+except:
+    Message("You need to install the fontTools library to run dotter")
+
 
 Segment = Union["GSPathSegment", list[GSNode]]
 TuplePoint = tuple[float, float]
