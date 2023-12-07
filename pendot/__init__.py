@@ -1,5 +1,5 @@
 from .dotter import GSFont, KEY, doDotter, PARAMS
-# from .stroker import doStroker # Not yet!
+from .stroker import doStroker # Not yet!
 from logging import getLogger
 try:
     import tqdm
