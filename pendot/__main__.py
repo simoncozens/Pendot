@@ -1,4 +1,4 @@
-from .dotter import GSFont, KEY, PARAMS
+from .dotter import GSFont
 from pendot import dot_font
 import argparse
 
