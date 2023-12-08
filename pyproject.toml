@@ -18,6 +18,11 @@ dependencies = [
   'glyphsLib >= 6.6.0'
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pendot"]
+namespaces = false
+
 [project.scripts]
 pendot = "pendot.__main__:main"
 
