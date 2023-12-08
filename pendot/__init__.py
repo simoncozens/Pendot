@@ -1,5 +1,6 @@
-from .dotter import GSFont, KEY, doDotter, PARAMS
-from .stroker import doStroker # Not yet!
+from .constants import KEY
+from .dotter import GSFont, DOTTER_PARAMS, doDotter
+from .stroker import doStroker, STROKER_PARAMS
 from logging import getLogger
 try:
     import tqdm
@@ -7,10 +8,12 @@ try:
 except ImportError:
     progress = list
 
+PARAMS = {**STROKER_PARAMS, **DOTTER_PARAMS}
+
 logger = getLogger(__name__)
 
 def dot_font(font: GSFont, params: dict = {}):
-    for param in PARAMS.keys():
+    for param in DOTTER_PARAMS.keys():
         if param in params:
             logger.info(f"Using param {param}={params[param]} from command line")
         elif KEY in font.userData and param in font.userData[KEY]:
@@ -26,17 +29,6 @@ def dot_font(font: GSFont, params: dict = {}):
 
 # This is expected to be used in the Designer for previewing
 def stroke_font(font: GSFont, params: dict = {}):
-    # For now
-    params = {
-        "width": 20,
-        "height": 20,
-        "startcap": "round",
-        "endcap": "round",
-        "jointype": "round",
-        "remove_internal": False,
-        "remove_external": False,
-        "segmentwise": False,
-    }
     for glyph in progress(font.glyphs):
         for layer in glyph.layers:
             doStroker(layer, params)

@@ -1,5 +1,6 @@
 import math
 from typing import Union, NamedTuple
+from .constants import KEY
 
 try:
     from GlyphsApp import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE, Message
@@ -35,8 +36,7 @@ class Center(NamedTuple):
 
 TupleSegment = list[TuplePoint]
 
-KEY = "co.uk.corvelsoftware.Dotter"
-PARAMS = {"dotSize": 15, "dotSpacing": 15, "preventOverlaps": True, "splitPaths": False}
+DOTTER_PARAMS = {"dotSize": 15, "dotSpacing": 15, "preventOverlaps": True, "splitPaths": False}
 MAGIC_NUMBER = 0.593667
 
 

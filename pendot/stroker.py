@@ -8,6 +8,19 @@ except:
 
 from ufostroker.ufostroker import constant_width_stroke as cws_rust
 
+STROKER_PARAMS = {
+    "strokerWidth": 50,
+    "strokerHeight": 50,
+    "strokerAngle": 0,
+    "strokerHeightLock": True,
+    "startCap": "round",
+    "endCap": "round",
+    "joinType": "round",
+    "removeExternal": False,
+    "removeInternal": False,
+    "segmentWise": False
+}
+
 type_map = {
     "": OFFCURVE,
     "curve": CURVE,
@@ -38,8 +51,19 @@ def doStroker(layer, params: dict):
         list_of_list_of_nodes.append([
             Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)
         ])
+    print(params)
 
-    result = cws_rust(list_of_list_of_nodes, **params)
+    result = cws_rust(list_of_list_of_nodes,
+        width = params["strokerWidth"],
+        height = params["strokerHeight"],
+        angle = params["strokerAngle"],
+        startcap = params["startCap"].lower(),
+        endcap = params["endCap"].lower(),
+        jointype = params["joinType"].lower(),
+        remove_internal = params["removeInternal"],
+        remove_external = params["removeExternal"],
+        segmentwise = params["segmentWise"],
+    )
     layer.shapes = []
     for res_path in result:
         path = GSPath()
