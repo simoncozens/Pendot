@@ -61,7 +61,13 @@ class Center(NamedTuple):
 
 TupleSegment = list[TuplePoint]
 
-DOTTER_PARAMS = {"dotSize": 15, "dotSpacing": 15, "preventOverlaps": True, "splitPaths": False}
+DOTTER_PARAMS = {
+    "dotSize": 15,
+    "dotSpacing": 15,
+    "preventOverlaps": True,
+    "splitPaths": False,
+    "alternateLayerName": None,
+}
 MAGIC_NUMBER = 0.593667
 
 
@@ -306,15 +312,22 @@ def doDotter(layer, params):
         return
     if not preview:
         addComponentGlyph(layer.parent.parent, params["dotSize"])
+    if (
+        params["alternateLayerName"]
+        and layer.parent.layers[params["alternateLayerName"]]
+    ):
+        sourcelayer = layer.parent.layers[params["alternateLayerName"]]
+    else:
+        sourcelayer = layer
     centers = []
     if params["splitPaths"]:
-        splitPathsAtIntersections(layer.paths)
-    for path in layer.paths:
+        splitPathsAtIntersections(sourcelayer.paths)
+    for path in sourcelayer.paths:
         for subpath in splitAtForcedNode(path):
             findCenters(subpath, params, centers)
     new_paths = centersToPaths(centers, params)
 
     layer.shapes = new_paths + list(layer.components)
-    for path in layer.paths:
+    for path in sourcelayer.paths:
         for node in path.nodes:
             clear_locally_forced(node)

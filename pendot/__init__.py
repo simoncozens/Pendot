@@ -20,8 +20,8 @@ def dot_font(font: GSFont, params: dict = {}):
             params[param] = font.userData[KEY][param]
             logger.info(f"Using param {param}={params[param]} from font")
         else:
-            logger.info(f"Using default value {param}={params[param]}")
             params[param] = PARAMS[param]
+            logger.info(f"Using default value {param}={params[param]}")
     for glyph in progress(font.glyphs):
         for layer in glyph.layers:
             doDotter(layer, params)
