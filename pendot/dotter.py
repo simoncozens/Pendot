@@ -2,11 +2,15 @@ import math
 from typing import Union, NamedTuple
 from .constants import KEY
 
+preview = True
+
 try:
-    from GlyphsApp import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE, Message
+    from GlyphsApp import GSFont, GSPath, GSComponent, GSGlyph, GSNode, OFFCURVE, CURVE, LINE, Message
 except:
-    from glyphsLib.classes import GSFont, GSPath, GSNode, OFFCURVE, CURVE, LINE
+    from glyphsLib.classes import GSFont, GSPath, GSLayer, GSComponent, GSGlyph, GSNode, OFFCURVE, CURVE, LINE
     import sys
+
+    preview = False
 
     def Message(message):
         print(message)
@@ -132,6 +136,18 @@ def makeCircle(center: TuplePoint, radius: float):
     return path
 
 
+def addComponentGlyph(font: GSFont, size: float):
+    if font.glyphs["_dot"]:
+        return
+    glyph = GSGlyph("_dot")
+    font.glyphs.append(glyph)
+    for master in font.masters:
+        layer = GSLayer()
+        glyph._setupLayer(layer, master.id)
+        glyph.layers.append(layer)
+        layer.paths.append(makeCircle((0, 0), size / 2))
+
+
 def splitAtForcedNode(path: GSPath):
     # Iterator, yields GSPaths
     new_path = GSPath()
@@ -187,7 +203,11 @@ def centersToPaths(centers: list[Center], params):
                 newcenters.append(c.pos)
     else:
         newcenters = [c.pos for c in centers]
-    return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
+
+    if preview:
+        return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
+    else:
+        return [GSComponent("_dot", c) for c in newcenters]
 
 
 def insertPointInPathUnlessThere(path, pt: TuplePoint):
@@ -257,6 +277,10 @@ def splitPathsAtIntersections(paths):
 
 
 def doDotter(layer, params):
+    if layer.parent.name == "_dot":
+        return
+    if not preview:
+        addComponentGlyph(layer.parent.parent, params["dotSize"])
     centers = []
     if params["splitPaths"]:
         splitPathsAtIntersections(layer.paths)
