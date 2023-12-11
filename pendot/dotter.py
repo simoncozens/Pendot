@@ -5,9 +5,29 @@ from .constants import KEY
 preview = True
 
 try:
-    from GlyphsApp import GSFont, GSPath, GSComponent, GSGlyph, GSNode, OFFCURVE, CURVE, LINE, Message
+    from GlyphsApp import (
+        GSFont,
+        GSPath,
+        GSComponent,
+        GSGlyph,
+        GSNode,
+        OFFCURVE,
+        CURVE,
+        LINE,
+        Message,
+    )
 except:
-    from glyphsLib.classes import GSFont, GSPath, GSLayer, GSComponent, GSGlyph, GSNode, OFFCURVE, CURVE, LINE
+    from glyphsLib.classes import (
+        GSFont,
+        GSPath,
+        GSLayer,
+        GSComponent,
+        GSGlyph,
+        GSNode,
+        OFFCURVE,
+        CURVE,
+        LINE,
+    )
     import sys
 
     preview = False
@@ -15,6 +35,7 @@ except:
     def Message(message):
         print(message)
         sys.exit(1)
+
 
 try:
     from fontTools.misc.bezierTools import (
@@ -106,11 +127,13 @@ def arclength(seg: Union[Segment, TupleSegment], approx=False) -> float:
 def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegment]:
     if len(seg) == 2:
         midpoint = linePointAtT(*seg, t)
-        return [seg[0], midpoint], [midpoint, seg[1]] 
+        return [seg[0], midpoint], [midpoint, seg[1]]
     return splitCubicAtT(*seg, t)
+
 
 def pathLength(path: GSPath) -> float:
     return sum(arclength(seg) for seg in path.segments)
+
 
 # This is just for display purposes; for the real thing we'll use a
 # component
@@ -213,7 +236,7 @@ def centersToPaths(centers: list[Center], params):
 def insertPointInPathUnlessThere(path, pt: TuplePoint):
     node: GSNode
     for node in path.nodes:
-        if distance( (node.position.x, node.position.y), pt) < 1.0:
+        if distance((node.position.x, node.position.y), pt) < 1.0:
             set_locally_forced(node)
             return
     # Find nearest point on nearest segment
@@ -243,12 +266,12 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
     else:
         node_types = [CURVE, OFFCURVE, OFFCURVE, CURVE, OFFCURVE, OFFCURVE, CURVE]
         middle = 3
-    nodes_to_insert = [
-        GSNode(x, typ) for x,typ in zip(new_left_right, node_types)
-    ]
+    nodes_to_insert = [GSNode(x, typ) for x, typ in zip(new_left_right, node_types)]
     set_locally_forced(nodes_to_insert[middle])
     newnodes = list(path.nodes)
-    newnodes[insertion_point_index : insertion_point_index+middle+1] = nodes_to_insert
+    newnodes[
+        insertion_point_index : insertion_point_index + middle + 1
+    ] = nodes_to_insert
     path.nodes = newnodes
     # print("New path nodes", path.nodes)
 
@@ -266,7 +289,9 @@ def splitPathsAtIntersections(paths):
                     # Let's see if it's actually a problem first.
                     intersections = findIntersections(s1, s2)
                     for i in intersections:
-                        if not (i.t1 >= 0 and i.t1 <= 1) or not (i.t2 >= 0 and i.t2 <= 1):
+                        if not (i.t1 >= 0 and i.t1 <= 1) or not (
+                            i.t2 >= 0 and i.t2 <= 1
+                        ):
                             continue
                         print(
                             "Intersection between %s/%s and %s/%s at %s"
