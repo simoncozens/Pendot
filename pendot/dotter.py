@@ -141,6 +141,7 @@ def splitAtForcedNode(path: GSPath):
         if isForced(n):
             yield new_path
             new_path = GSPath()
+            new_path.closed = False
             new_path.nodes.append(GSNode(n.position, n.type))
     yield new_path
 
