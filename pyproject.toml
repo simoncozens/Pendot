@@ -15,7 +15,8 @@ classifiers = [
   'Topic :: Text Processing :: Fonts',
 ]
 dependencies = [
-  'glyphsLib >= 6.6.0'
+  'glyphsLib >= 6.6.0',
+  'ufostroker >= 0.3.0',
 ]
 
 [tool.setuptools.packages.find]
