@@ -1,5 +1,6 @@
 import math
-from typing import Union, NamedTuple
+from typing import Optional, Union, NamedTuple
+from fontTools.misc.transform import Identity, Transform
 from .constants import KEY
 
 preview = True
@@ -11,6 +12,7 @@ try:
         GSComponent,
         GSGlyph,
         GSNode,
+        GSLayer,
         OFFCURVE,
         CURVE,
         LINE,
@@ -139,6 +141,20 @@ def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegmen
 def pathLength(path: GSPath) -> float:
     return sum(arclength(seg) for seg in path.segments)
 
+
+def decomposedPaths(layer: GSLayer, ctm: Optional[Transform] = None) -> list[GSPath]:
+    if ctm is None:
+        ctm = Identity
+    outpaths = []
+    for shape in layer.shapes:
+        if isinstance(shape, GSPath):
+            path = shape.clone()
+            path.applyTransform(ctm)
+            outpaths.append(shape)
+        else:
+            ctm = Transform(*shape.transform).transform(ctm)
+            outpaths.extend(decomposedPaths(shape.layer, ctm))
+    return outpaths
 
 # This is just for display purposes; for the real thing we'll use a
 # component
@@ -322,7 +338,9 @@ def splitPathsAtIntersections(paths):
 def doDotter(layer, params):
     if layer.parent.name == "_dot":
         return
-    if not preview:
+    if preview:
+        layer.decomposeComponents()
+    else:
         addComponentGlyph(layer.parent.parent, params["dotSize"])
     if (
         params["alternateLayerName"]
@@ -332,14 +350,21 @@ def doDotter(layer, params):
     else:
         sourcelayer = layer
     centers = []
+    if preview:
+        paths = sourcelayer.paths
+    else:
+        paths = decomposedPaths(sourcelayer)
     if params["splitPaths"]:
-        splitPathsAtIntersections(sourcelayer.paths)
-    for path in sourcelayer.paths:
+        splitPathsAtIntersections(paths)
+    for path in paths:
         for subpath in splitAtForcedNode(path):
             findCenters(subpath, params, centers)
     new_paths = centersToPaths(centers, params)
 
-    layer.shapes = new_paths + list(layer.components)
+    if preview:
+        layer.shapes = new_paths + list(layer.components)
+    else:
+        layer.shapes = new_paths
     for path in sourcelayer.paths:
         for node in path.nodes:
             clear_locally_forced(node)
