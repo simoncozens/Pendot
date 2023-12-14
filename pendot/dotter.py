@@ -68,7 +68,6 @@ DOTTER_PARAMS = {
     "splitPaths": False,
     "alternateLayerName": None,
 }
-MAGIC_NUMBER = 0.593667
 
 
 def distance(a: TuplePoint, b: TuplePoint) -> float:
@@ -143,21 +142,34 @@ def pathLength(path: GSPath) -> float:
 
 # This is just for display purposes; for the real thing we'll use a
 # component
+
+def append_cubicseg(path, points):
+    path.nodes.append(GSNode(points[0], OFFCURVE))
+    path.nodes.append(GSNode(points[1], OFFCURVE))
+    path.nodes.append(GSNode(points[2], CURVE))
+
 def makeCircle(center: TuplePoint, radius: float):
-    x, y = center
+    centerx, centery = center
     path = GSPath()
-    path.nodes.append(GSNode((x - radius * MAGIC_NUMBER, y - radius), OFFCURVE))
-    path.nodes.append(GSNode((x - radius, y - radius * MAGIC_NUMBER), OFFCURVE))
-    path.nodes.append(GSNode((x - radius, y), CURVE))
-    path.nodes.append(GSNode((x - radius, y + radius * MAGIC_NUMBER), OFFCURVE))
-    path.nodes.append(GSNode((x - radius * MAGIC_NUMBER, y + radius), OFFCURVE))
-    path.nodes.append(GSNode((x, y + radius), CURVE))
-    path.nodes.append(GSNode((x + radius * MAGIC_NUMBER, y + radius), OFFCURVE))
-    path.nodes.append(GSNode((x + radius, y + radius * MAGIC_NUMBER), OFFCURVE))
-    path.nodes.append(GSNode((x + radius, y), CURVE))
-    path.nodes.append(GSNode((x + radius, y - radius * MAGIC_NUMBER), OFFCURVE))
-    path.nodes.append(GSNode((x + radius * MAGIC_NUMBER, y - radius), OFFCURVE))
-    path.nodes.append(GSNode((x, y - radius), CURVE))
+    # We are using eight 45 degree circle segments, for accuracy at
+    # small sizes
+
+    # Work out the numbers for a unit circle, then scale and
+    # move them.
+    a_circle = [
+        [ (1, 0.265216), (0.894643, 0.51957), (0.7071,0.7071) ],
+        [ (0.51957, 0.894643), (0.265216, 1), (0, 1) ],
+        [ (-0.265216,1), (-0.51957, 0.894643), (-0.7071,0.7071) ],
+        [ (-0.894643, 0.51957), (-1, 0.265216), (-1, 0) ],
+        [ (-1, -0.265216), (-0.894643, -0.51957), (-0.7071, -0.7071) ],
+        [ (-0.51957, -0.894643), (-0.265216, -1), (0, -1) ],
+        [ (0.265216,-1), (0.51957, -0.894643), (0.7071,-0.7071) ],
+        [ (0.894643, -0.51957), (1, -0.265216), (1, 0) ],
+    ]
+    for segment in a_circle:
+        append_cubicseg(path,
+            [ (x*radius + centerx, y*radius + centery - radius/2) for (x,y) in segment ]
+        )
     path.closed = True
     for ix, node in enumerate(path.nodes):
         if (ix + 1) % 3:
