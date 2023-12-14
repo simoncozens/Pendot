@@ -168,7 +168,7 @@ def makeCircle(center: TuplePoint, radius: float):
     ]
     for segment in a_circle:
         append_cubicseg(path,
-            [ (x*radius + centerx, y*radius + centery - radius/2) for (x,y) in segment ]
+            [ (x*radius + centerx, y*radius + centery) for (x,y) in segment ]
         )
     path.closed = True
     for ix, node in enumerate(path.nodes):
