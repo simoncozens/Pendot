@@ -150,10 +150,10 @@ def decomposedPaths(layer: GSLayer, ctm: Optional[Transform] = None) -> list[GSP
         if isinstance(shape, GSPath):
             path = shape.clone()
             path.applyTransform(ctm)
-            outpaths.append(shape)
+            outpaths.append(path)
         else:
-            ctm = Transform(*shape.transform).transform(ctm)
-            outpaths.extend(decomposedPaths(shape.layer, ctm))
+            their_ctm = Transform(*shape.transform).transform(ctm)
+            outpaths.extend(decomposedPaths(shape.layer, their_ctm))
     return outpaths
 
 # This is just for display purposes; for the real thing we'll use a
