@@ -292,7 +292,7 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
     if insertion_point_index is None:
         raise ValueError("Point not on path...")
     # print("Old path nodes", path.nodes)
-    print("Splitting path at ", pt, " to ", new_left_right)
+    # print("Splitting path at ", pt, " to ", new_left_right)
     # print("Insertion index was ", insertion_point_index)
     if len(new_left_right) == 3:  # We have split a line
         node_types = [LINE, LINE, LINE]
@@ -327,10 +327,10 @@ def splitPathsAtIntersections(paths):
                             i.t2 >= 0 and i.t2 <= 1
                         ):
                             continue
-                        print(
-                            "Intersection between %s/%s and %s/%s at %s"
-                            % (p1, s1, p2, s2, i.pt)
-                        )
+                        # print(
+                        #     "Intersection between %s/%s and %s/%s at %s"
+                        #     % (p1, s1, p2, s2, i.pt)
+                        # )
                         insertPointInPathUnlessThere(p1, i.pt)
                         insertPointInPathUnlessThere(p2, i.pt)
 
