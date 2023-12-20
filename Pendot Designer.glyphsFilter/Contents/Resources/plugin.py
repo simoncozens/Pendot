@@ -136,6 +136,36 @@ class PendotDesigner(FilterWithDialog):
         # Trigger redraw
         self.update()
 
+
+    # In the dialog (preview), we only filter a single layer
+    def process_(self, sender):
+        try:
+            # Create Preview in Edit View, and save & show original in ShadowLayers:
+            ShadowLayers = self.valueForKey_("shadowLayers")
+            Layers = self.valueForKey_("layers")
+            checkSelection = True
+            if not len(ShadowLayers):
+                return
+            ShadowLayer = ShadowLayers[0]
+            Layer = Layers[0]
+            Layer.setShapes_(NSMutableArray.alloc().initWithArray_copyItems_(ShadowLayer.pyobjc_instanceMethods.shapes(), True))
+            Layer.clearSelection()
+            if len(ShadowLayer.selection) > 0 and checkSelection:
+                for idx in range(len(ShadowLayer.shapes)):
+                    currShadowPath = ShadowLayer.shapes[idx]
+                    if isinstance(currShadowPath, GSPath):
+                        currLayerPath = Layer.shapes[idx]
+                        for j in range(len(currShadowPath.nodes)):
+                            currShadowNode = currShadowPath.nodes[j]
+                            if currShadowNode in ShadowLayer.selection:
+                                Layer.addSelection_(currLayerPath.nodes[j])
+
+            self.filter(Layer, True, {})  # add your class variables here
+            Layer.clearSelection()
+            objc.super(FilterWithDialog, self).process_(sender)
+        except:
+            LogError(traceback.format_exc())
+
     # Actual filter
     @objc.python_method
     def filter(self, layer, inEditView, customParameters):
@@ -172,10 +202,11 @@ class PendotDesigner(FilterWithDialog):
         return __file__
 
     def confirmDialog_(self, sender):
-        # On confirm, put shadowlayers back
         ShadowLayers = self.valueForKey_("shadowLayers")
         Layers = self.valueForKey_("layers")
         checkSelection = True
+        # Save layers to ...somewhere else
+        # On confirm, put shadowlayers back
         for k in range(len(ShadowLayers)):
             ShadowLayer = ShadowLayers[k]
             Layer = Layers[k]
