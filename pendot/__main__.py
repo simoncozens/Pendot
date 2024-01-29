@@ -8,6 +8,7 @@ def main(args=None):
     subparsers = parser.add_subparsers(dest="command")
     dot_parser = subparsers.add_parser("dot")
     dot_parser.add_argument("input", help="Input font file")
+    dot_parser.add_argument("instance", help="Instance name")
     dot_parser.add_argument("--output", "-o", help="Output font file")
     dot_parser.add_argument("--dot-size", type=float, help="Dot size")
     dot_parser.add_argument("--dot-spacing", type=float, help="Dot spacing")
@@ -34,7 +35,7 @@ def main(args=None):
             params["preventOverlaps"] = True
         if args.split_paths:
             params["splitPaths"] = True
-        dot_font(font, params)
+        dot_font(font, args.instance)
     print("Saving to", output)
     font.save(output)
 

@@ -8,6 +8,7 @@ preview = True
 try:
     from GlyphsApp import (
         GSFont,
+        GSInstance,
         GSPath,
         GSComponent,
         GSGlyph,
@@ -21,6 +22,7 @@ try:
 except:
     from glyphsLib.classes import (
         GSFont,
+        GSInstance,
         GSPath,
         GSLayer,
         GSComponent,
@@ -84,8 +86,9 @@ def set_locally_forced(node: GSNode) -> None:
 
 def clear_locally_forced(node: GSNode) -> None:
     # print("Clearing force from ", node)
-    if KEY in node.userData:
-        del node.userData[KEY]["locally_forced"]
+    if KEY in node.userData and node.userData["KEY"]:
+        if "locally_forced" in node.userData["KEY"]:
+            del node.userData[KEY]["locally_forced"]
         if not node.userData[KEY]:
             del node.userData[KEY]
     # print(node.userData)
@@ -193,11 +196,12 @@ def makeCircle(center: TuplePoint, radius: float):
     return path
 
 
-def addComponentGlyph(font: GSFont, size: float):
+def addComponentGlyph(font: GSFont, instance: GSInstance):
     if font.glyphs["_dot"]:
         return
     glyph = GSGlyph("_dot")
     font.glyphs.append(glyph)
+    size = instance.userData[KEY+".dotSize"]
     for master in font.masters:
         layer = GSLayer()
         glyph._setupLayer(layer, master.id)
@@ -334,7 +338,7 @@ def splitPathsAtIntersections(paths):
                         insertPointInPathUnlessThere(p1, i.pt)
                         insertPointInPathUnlessThere(p2, i.pt)
 
-def getParams(layer, instance):
+def getParams(layer, instance, cmd_line_params=None):
     params = {}
     for paramname in DOTTER_PARAMS.keys():
         # First try inside the layer
@@ -344,22 +348,18 @@ def getParams(layer, instance):
         # Then try inside the instance
         elif KEY+"."+paramname in instance.userData:
             params[paramname] = instance.userData[KEY+"."+paramname]
+        # Then try command line parameters
+        elif cmd_line_params and paramname in cmd_line_params:
+            params[paramname] = cmd_line_params[paramname]
         else:  # Take the default
             params[paramname] = DOTTER_PARAMS[paramname]
         pass
     return params
 
-def doDotter(layer, instance):
+def doDotter(layer, instance, cmd_line_params=None):
     if layer.parent.name == "_dot":
         return
-    if preview:
-        layer.decomposeComponents()
-    else:
-        raise ValueError("The build is completely broken right now while we work on the UI")
-        addComponentGlyph(layer.parent.parent, params["dotSize"])
-    params = getParams(layer, instance)
-    print("Running dotted with params")
-    print(params)
+    params = getParams(layer, instance, cmd_line_params)
     if (
         params["contourSource"] != "<Default>"
         and layer.parent.layers[params["contourSource"]]
@@ -379,10 +379,6 @@ def doDotter(layer, instance):
             findCenters(subpath, params, centers)
     new_paths = centersToPaths(centers, params)
 
-    # if preview:
-    #     layer.shapes = new_paths + list(layer.components)
-    # else:
-    #     layer.shapes = new_paths
     for path in sourcelayer.paths:
         for node in path.nodes:
             clear_locally_forced(node)
