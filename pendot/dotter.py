@@ -68,7 +68,7 @@ DOTTER_PARAMS = {
     "dotSpacing": 15,
     "preventOverlaps": True,
     "splitPaths": False,
-    "alternateLayerName": None,
+    "contourSource": "<Default>",
 }
 
 
@@ -210,7 +210,7 @@ def splitAtForcedNode(path: GSPath):
     new_path = GSPath()
     new_path.closed = False
     for n in path.nodes:
-        new_path.nodes.append(n)
+        new_path.nodes.append(GSNode(n.position, n.type))
         if isForced(n):
             yield new_path
             new_path = GSPath()
@@ -334,19 +334,37 @@ def splitPathsAtIntersections(paths):
                         insertPointInPathUnlessThere(p1, i.pt)
                         insertPointInPathUnlessThere(p2, i.pt)
 
+def getParams(layer, instance):
+    params = {}
+    for paramname in DOTTER_PARAMS.keys():
+        # First try inside the layer
+        layer_instance_override = KEY+"."+instance.name+"."+paramname
+        if layer_instance_override in layer.userData:
+            params[paramname] = layer.userData[layer_instance_override]
+        # Then try inside the instance
+        elif KEY+"."+paramname in instance.userData:
+            params[paramname] = instance.userData[KEY+"."+paramname]
+        else:  # Take the default
+            params[paramname] = DOTTER_PARAMS[paramname]
+        pass
+    return params
 
-def doDotter(layer, params):
+def doDotter(layer, instance):
     if layer.parent.name == "_dot":
         return
     if preview:
         layer.decomposeComponents()
     else:
+        raise ValueError("The build is completely broken right now while we work on the UI")
         addComponentGlyph(layer.parent.parent, params["dotSize"])
+    params = getParams(layer, instance)
+    print("Running dotted with params")
+    print(params)
     if (
-        params["alternateLayerName"]
-        and layer.parent.layers[params["alternateLayerName"]]
+        params["contourSource"] != "<Default>"
+        and layer.parent.layers[params["contourSource"]]
     ):
-        sourcelayer = layer.parent.layers[params["alternateLayerName"]]
+        sourcelayer = layer.parent.layers[params["contourSource"]]
     else:
         sourcelayer = layer
     centers = []
@@ -361,10 +379,11 @@ def doDotter(layer, params):
             findCenters(subpath, params, centers)
     new_paths = centersToPaths(centers, params)
 
-    if preview:
-        layer.shapes = new_paths + list(layer.components)
-    else:
-        layer.shapes = new_paths
+    # if preview:
+    #     layer.shapes = new_paths + list(layer.components)
+    # else:
+    #     layer.shapes = new_paths
     for path in sourcelayer.paths:
         for node in path.nodes:
             clear_locally_forced(node)
+    return new_paths
