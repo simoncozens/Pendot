@@ -161,13 +161,16 @@ class PendotDesigner:
         self.w.instanceSelector = LabelledComponent(
             "Instance",
             # vanilla.PopUpButton("auto", instancenames)
-            vanilla.PopUpButton("auto", [i.name for i in font.instances]),
+            vanilla.PopUpButton("auto", [i.name for i in font.instances],
+                callback=self.reloadValues),
         )
+        self.widget_reloaders = []
         self.w.tabs = vanilla.Tabs("auto", ["Dotter", "Stroker", "Guidelines"])
-        dotterTab = self.w.tabs[0]
+        dotterTab, strokerTab, guidelineTab = self.w.tabs
         alternate_layers = ["<Default>"]
         if layers[0]:
             alternate_layers.extend([l.name for l in layers[0].parent.layers])
+
         # Set up dotter tab
         def setuptab(tab, controls):
             tab.glyphoverridelabel = vanilla.TextBox((350, 0, 250, 24), "")
@@ -177,9 +180,11 @@ class PendotDesigner:
                 )
             basepos = (10, 30, -10, 30)
             for name,title,widget,args in controls:
-                setattr(tab, name, OverridableComponent(
-                    self, name, basepos, title, widget, args, postChange=self.filter
-                ))
+                component = OverridableComponent(
+                    self, name, basepos, title, widget, args, postChange=self.updateDots
+                )
+                setattr(tab, name, component)
+                self.widget_reloaders.append(component.loadValues)
                 basepos = (10, basepos[1]+30, -10, 30)
         setuptab(dotterTab, [
             ("contourSource", "Contour Source", vanilla.PopUpButton, {"items":alternate_layers}),
@@ -190,7 +195,9 @@ class PendotDesigner:
         ])
         # Set up Stroker tab
         setuptab(strokerTab, [
-            ("dotSize", "Dot Size", SteppingTextBox, {}),
+            ("strokerWidth", "Stroke Width", SteppingTextBox, {}),
+            ("strokerHeight", "Stroke Height", SteppingTextBox, {}),
+            ("strokerAngle", "Stroke Angle", SteppingTextBox, {}),
         ])
         self.w.filterButton = vanilla.Button("auto", "Filter", callback=self.filter)
         # self.w.closeButton = vanilla.Button("auto", "Close", callback=self.close)
@@ -203,6 +210,15 @@ class PendotDesigner:
         metrics = {}
         self.w.addAutoPosSizeRules(rules, metrics)
         self.w.open()
+
+
+    def updateDots(self, sender=None):
+        if self.w.tabs.get() == 0:
+            self.filter()
+
+    def reloadValues(self, sender=None):
+        for reloader in self.widget_reloaders:
+            reloader()
 
     def filter(self, sender=None):
         if self.idempotence:
