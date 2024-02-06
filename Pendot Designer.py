@@ -168,56 +168,30 @@ class PendotDesigner:
         alternate_layers = ["<Default>"]
         if layers[0]:
             alternate_layers.extend([l.name for l in layers[0].parent.layers])
-        dotterTab.glyphoverridelabel = vanilla.TextBox((350, 0, 250, 24), "")
-        if layers:
-            dotterTab.glyphoverridelabel.set(
-                "Override glyph /" + layers[0].parent.name + "?"
-            )
-        dotterTab.contourSource = OverridableComponent(
-            self,
-            "contourSource",
-            (10, 30, -10, 30),
-            "Contour Source",
-            vanilla.PopUpButton,
-            {"items": alternate_layers},
-            postChange=self.filter,
-        )
-        dotterTab.dotSize = OverridableComponent(
-            self,
-            "dotSize",
-            (10, 70, -10, 30),
-            "Dot Size",
-            SteppingTextBox,
-            {},
-            postChange=self.filter,
-        )
-        dotterTab.dotSpacing = OverridableComponent(
-            self,
-            "dotSpacing",
-            (10, 100, -10, 30),
-            "Dot Spacing",
-            SteppingTextBox,
-            {},
-            postChange=self.filter,
-        )
-        dotterTab.preventOverlaps = OverridableComponent(
-            self,
-            "preventOverlaps",
-            (10, 130, -10, 30),
-            "PreventOverlaps",
-            vanilla.CheckBox,
-            {"title": ""},
-            postChange=self.filter,
-        )
-        dotterTab.splitPaths = OverridableComponent(
-            self,
-            "splitPaths",
-            (10, 160, -10, 30),
-            "Split paths at nodes",
-            vanilla.CheckBox,
-            {"title": ""},
-            postChange=self.filter,
-        )
+        # Set up dotter tab
+        def setuptab(tab, controls):
+            tab.glyphoverridelabel = vanilla.TextBox((350, 0, 250, 24), "")
+            if layers:
+                tab.glyphoverridelabel.set(
+                    "Override glyph /" + layers[0].parent.name + "?"
+                )
+            basepos = (10, 30, -10, 30)
+            for name,title,widget,args in controls:
+                setattr(tab, name, OverridableComponent(
+                    self, name, basepos, title, widget, args, postChange=self.filter
+                ))
+                basepos = (10, basepos[1]+30, -10, 30)
+        setuptab(dotterTab, [
+            ("contourSource", "Contour Source", vanilla.PopUpButton, {"items":alternate_layers}),
+            ("dotSize", "Dot Size", SteppingTextBox, {}),
+            ("dotSpacing", "Dot Spacing", SteppingTextBox, {}),
+            ("preventOverlaps", "Prevent Overlaps", vanilla.CheckBox, {"title": ""}),
+            ("splitPaths", "Split paths at nodes", vanilla.CheckBox, {"title": ""}),
+        ])
+        # Set up Stroker tab
+        setuptab(strokerTab, [
+            ("dotSize", "Dot Size", SteppingTextBox, {}),
+        ])
         self.w.filterButton = vanilla.Button("auto", "Filter", callback=self.filter)
         # self.w.closeButton = vanilla.Button("auto", "Close", callback=self.close)
         rules = [
