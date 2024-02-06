@@ -156,7 +156,6 @@ class PendotDesigner:
     def __init__(self):
         self.idempotence = False
         font = Glyphs.font
-        layers = font.selectedLayers
         self.w = vanilla.Window((600, 600), "Pendot Designer")
         self.w.instanceSelector = LabelledComponent(
             "Instance",
@@ -167,17 +166,10 @@ class PendotDesigner:
         self.widget_reloaders = []
         self.w.tabs = vanilla.Tabs("auto", ["Dotter", "Stroker", "Guidelines"])
         dotterTab, strokerTab, guidelineTab = self.w.tabs
-        alternate_layers = ["<Default>"]
-        if layers[0]:
-            alternate_layers.extend([l.name for l in layers[0].parent.layers])
 
         # Set up dotter tab
         def setuptab(tab, controls):
             tab.glyphoverridelabel = vanilla.TextBox((350, 0, 250, 24), "")
-            if layers:
-                tab.glyphoverridelabel.set(
-                    "Override glyph /" + layers[0].parent.name + "?"
-                )
             basepos = (10, 30, -10, 30)
             for name,title,widget,args in controls:
                 component = OverridableComponent(
@@ -187,7 +179,7 @@ class PendotDesigner:
                 self.widget_reloaders.append(component.loadValues)
                 basepos = (10, basepos[1]+30, -10, 30)
         setuptab(dotterTab, [
-            ("contourSource", "Contour Source", vanilla.PopUpButton, {"items":alternate_layers}),
+            ("contourSource", "Contour Source", vanilla.PopUpButton, {"items":[]}),
             ("dotSize", "Dot Size", SteppingTextBox, {}),
             ("dotSpacing", "Dot Spacing", SteppingTextBox, {}),
             ("preventOverlaps", "Prevent Overlaps", vanilla.CheckBox, {"title": ""}),
@@ -199,6 +191,8 @@ class PendotDesigner:
             ("strokerHeight", "Stroke Height", SteppingTextBox, {}),
             ("strokerAngle", "Stroke Angle", SteppingTextBox, {}),
         ])
+
+        self.onLayerChange()
         self.w.filterButton = vanilla.Button("auto", "Filter", callback=self.filter)
         # self.w.closeButton = vanilla.Button("auto", "Close", callback=self.close)
         rules = [
@@ -210,7 +204,23 @@ class PendotDesigner:
         metrics = {}
         self.w.addAutoPosSizeRules(rules, metrics)
         self.w.open()
+        Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
+        Glyphs.addCallback(self.updateDots, "GSUpdateInterface")
 
+
+    def onLayerChange(self, sender=None):
+        font = Glyphs.font
+        layers = font.selectedLayers
+        alternate_layers = ["<Default>"]
+        if layers[0]:
+            alternate_layers.extend([l.name for l in layers[0].parent.layers])
+            self.w.tabs[0].contourSource.defaultwidget.setItems(alternate_layers)
+            self.w.tabs[0].contourSource.overridewidget.setItems(alternate_layers)
+            for tab in (self.w.tabs[0], self.w.tabs[1]):
+                tab.glyphoverridelabel.set(
+                    "Override glyph /" + layers[0].parent.name + "?"
+                )
+        self.reloadValues()
 
     def updateDots(self, sender=None):
         if self.w.tabs.get() == 0:
