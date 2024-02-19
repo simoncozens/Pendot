@@ -203,14 +203,21 @@ class PendotDesigner:
         ]
         metrics = {}
         self.w.addAutoPosSizeRules(rules, metrics)
+        self.w.bind("close", self.finish)
         self.w.open()
         Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
         Glyphs.addCallback(self.updateDots, "GSUpdateInterface")
+    
+    def finish(self, sender=None):
+        Glyphs.removeCallback(self.onLayerChange)
+        Glyphs.removeCallback(self.updateDots)
 
 
     def onLayerChange(self, sender=None):
         font = Glyphs.font
         layers = font.selectedLayers
+        if not layers:
+            return
         alternate_layers = ["<Default>"]
         if layers[0]:
             alternate_layers.extend([l.name for l in layers[0].parent.layers])
@@ -233,12 +240,12 @@ class PendotDesigner:
     def filter(self, sender=None):
         if self.idempotence:
             return
+        self.idempotence = True
         font = Glyphs.font
-        if Glyphs.font.selectedLayers:
+        for layer in Glyphs.font.selectedLayers:
+            if layer.layerId != layer.associatedMasterId:
+                continue
             for instance in font.instances:
-                layer = Glyphs.font.selectedLayers[0]
-                if layer.layerId != layer.associatedMasterId:
-                    continue
                 # Find or create a "dotted" layer
                 destination_layer_name = "%s dotted" % (instance.name)
                 if Glyphs.font.glyphs[layer.parent.name].layers[destination_layer_name]:
@@ -253,18 +260,19 @@ class PendotDesigner:
                     destination_layer.associatedMasterId = layer.associatedMasterId
                     layer.parent.layers.append(destination_layer)
                 destination_layer.visible = True
-                try:
-                    self.idempotence = True
-                    destination_layer.parent.beginUndo()
-                    destination_layer.shapes = doDotter(layer, instance)
-                    destination_layer.parent.endUndo()
-                    Glyphs.redraw()
-                except Exception as e:
-                    print(traceback.format_exc())
-                    print(e)
-                    print("Error in layer", layer)
-                finally:
-                    self.idempotence = False
+                # Do dotting and redrawing if we are in the edit view
+                if Glyphs.font.parent.windowController().activeEditViewController():
+                    print("We are in edit view")
+                    try:
+                        destination_layer.parent.beginUndo()
+                        destination_layer.shapes = doDotter(layer, instance)
+                        destination_layer.parent.endUndo()
+                        Glyphs.redraw()
+                    except Exception as e:
+                        print(traceback.format_exc())
+                        print(e)
+                        print("Error in layer", layer)
+                self.idempotence = False
 
     def close(self, sender=None):
         self.w.close()
