@@ -54,16 +54,26 @@ def doStroker(layer, instance, cmd_line_params=None):
             Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)
         ])
 
+    startcap = params["startCap"].lower()
+    endcap = params["endCap"].lower()
+    jointype = params["joinType"].lower()
+    if startcap not in ["round", "square", "circle"]:
+        raise ValueError("Unknown start cap type")
+    if endcap not in ["round", "square", "circle"]:
+        raise ValueError("Unknown end cap type")
+    if jointype not in ["round", "bevel", "mitre", "circle"]:
+        raise ValueError("Unknown join type")
+    
     result = cws_rust(list_of_list_of_nodes,
-        width = params["strokerWidth"],
-        height = params["strokerHeight"],
-        angle = params["strokerAngle"],
-        startcap = params["startCap"].lower(),
-        endcap = params["endCap"].lower(),
-        jointype = params["joinType"].lower(),
-        remove_internal = params["removeInternal"],
-        remove_external = params["removeExternal"],
-        segmentwise = params["segmentWise"],
+        width = float(params["strokerWidth"]),
+        height = float(params["strokerHeight"]),
+        angle = float(params["strokerAngle"] or 0),
+        startcap = startcap,
+        endcap = endcap,
+        jointype = jointype,
+        remove_internal = bool(params["removeInternal"]),
+        remove_external = bool(params["removeExternal"]),
+        segmentwise = bool(params["segmentWise"]),
     )
     newpaths = []
     for res_path in result:

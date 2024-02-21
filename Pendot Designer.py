@@ -202,6 +202,12 @@ class PendotDesigner:
                 ("strokerWidth", "Stroke Width", SteppingTextBox, {}),
                 ("strokerHeight", "Stroke Height", SteppingTextBox, {}),
                 ("strokerAngle", "Stroke Angle", SteppingTextBox, {}),
+                ("startCap", "StartCap", vanilla.PopUpButton, {"items": ["Round", "Circle", "Square"]}),
+                ("endCap", "EndCap", vanilla.PopUpButton, {"items": ["Round", "Circle", "Square"]}),
+                ("joinType", "Join Type", vanilla.PopUpButton, {"items": ["Round", "Bevel", "Mitre", "Circle"]}),
+                ("removeExternal", "Remove External", vanilla.CheckBox, {"title": ""}),
+                ("removeInternal", "Remove Internal", vanilla.CheckBox, {"title": ""}),
+                ("segmentWise", "Stroke Each Segment", vanilla.CheckBox, {"title": ""}),
             ],
         )
 
@@ -360,7 +366,7 @@ class PendotDesigner:
                 preview_layer.shapes = doDotter(layer, instance, component=True)
             else:
                 preview_layer.shapes = doStroker(layer, instance)
-
+        Glyphs.redraw()
 
 if Glyphs.font:
     if not hasattr(GSApplication, "_pendotdesigner"):
