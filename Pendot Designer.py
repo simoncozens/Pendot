@@ -207,6 +207,7 @@ class PendotDesigner:
         self.w.open()
         Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
         Glyphs.addCallback(self.updateDots, "GSUpdateInterface")
+        self.filter()
     
     def finish(self, sender=None):
         Glyphs.removeCallback(self.onLayerChange)
