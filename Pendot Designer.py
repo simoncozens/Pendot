@@ -5,16 +5,17 @@ Pendot Designer
 
 import vanilla
 from pathlib import Path
-from GlyphsApp import Glyphs, GSLayer
+from GlyphsApp import Glyphs, GSLayer, GSFontMaster, GSApplication
 import sys
 
 sys.path.append(str(Path(__file__).parent.parent / "Plugins" / "Dotter"))
 
-from pendot.dotter import doDotter, KEY
+from pendot.dotter import doDotter, KEY, addComponentGlyph
 from pendot import PARAMS
 import traceback
 
 
+PREVIEW_MASTER_NAME = "Pendot Preview"
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 
 
@@ -160,8 +161,9 @@ class PendotDesigner:
         self.w.instanceSelector = LabelledComponent(
             "Instance",
             # vanilla.PopUpButton("auto", instancenames)
-            vanilla.PopUpButton("auto", [i.name for i in font.instances],
-                callback=self.reloadValues),
+            vanilla.PopUpButton(
+                "auto", [i.name for i in font.instances], callback=self.reloadValues
+            ),
         )
         self.widget_reloaders = []
         self.w.tabs = vanilla.Tabs("auto", ["Dotter", "Stroker", "Guidelines"])
@@ -171,35 +173,49 @@ class PendotDesigner:
         def setuptab(tab, controls):
             tab.glyphoverridelabel = vanilla.TextBox((350, 0, 250, 24), "")
             basepos = (10, 30, -10, 30)
-            for name,title,widget,args in controls:
+            for name, title, widget, args in controls:
                 component = OverridableComponent(
                     self, name, basepos, title, widget, args, postChange=self.updateDots
                 )
                 setattr(tab, name, component)
                 self.widget_reloaders.append(component.loadValues)
-                basepos = (10, basepos[1]+30, -10, 30)
-        setuptab(dotterTab, [
-            ("contourSource", "Contour Source", vanilla.PopUpButton, {"items":[]}),
-            ("dotSize", "Dot Size", SteppingTextBox, {}),
-            ("dotSpacing", "Dot Spacing", SteppingTextBox, {}),
-            ("preventOverlaps", "Prevent Overlaps", vanilla.CheckBox, {"title": ""}),
-            ("splitPaths", "Split paths at nodes", vanilla.CheckBox, {"title": ""}),
-        ])
+                basepos = (10, basepos[1] + 30, -10, 30)
+
+        setuptab(
+            dotterTab,
+            [
+                ("contourSource", "Contour Source", vanilla.PopUpButton, {"items": []}),
+                ("dotSize", "Dot Size", SteppingTextBox, {}),
+                ("dotSpacing", "Dot Spacing", SteppingTextBox, {}),
+                (
+                    "preventOverlaps",
+                    "Prevent Overlaps",
+                    vanilla.CheckBox,
+                    {"title": ""},
+                ),
+                ("splitPaths", "Split paths at nodes", vanilla.CheckBox, {"title": ""}),
+            ],
+        )
         # Set up Stroker tab
-        setuptab(strokerTab, [
-            ("strokerWidth", "Stroke Width", SteppingTextBox, {}),
-            ("strokerHeight", "Stroke Height", SteppingTextBox, {}),
-            ("strokerAngle", "Stroke Angle", SteppingTextBox, {}),
-        ])
+        setuptab(
+            strokerTab,
+            [
+                ("strokerWidth", "Stroke Width", SteppingTextBox, {}),
+                ("strokerHeight", "Stroke Height", SteppingTextBox, {}),
+                ("strokerAngle", "Stroke Angle", SteppingTextBox, {}),
+            ],
+        )
 
         self.onLayerChange()
-        self.w.filterButton = vanilla.Button("auto", "Filter", callback=self.filter)
+        self.w.createPreviewButton = vanilla.Button(
+            "auto", "Create preview master", callback=self.createPreviewMaster
+        )
         # self.w.closeButton = vanilla.Button("auto", "Close", callback=self.close)
         rules = [
             "H:|-[instanceSelector]-|",
             "H:|-[tabs]-|",
-            "H:|-[filterButton]-|",
-            "V:|-20-[instanceSelector]-20-[tabs]-20-[filterButton]-|",
+            "H:|-[createPreviewButton]-|",
+            "V:|-20-[instanceSelector]-20-[tabs]-20-[createPreviewButton]-|",
         ]
         metrics = {}
         self.w.addAutoPosSizeRules(rules, metrics)
@@ -207,13 +223,19 @@ class PendotDesigner:
         self.w.open()
         Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
         Glyphs.addCallback(self.updateDots, "GSUpdateInterface")
-        self.filter()
-    
+        self.createLayerPreview()
+
     def finish(self, sender=None):
         Glyphs.removeCallback(self.onLayerChange)
         Glyphs.removeCallback(self.updateDots)
         del self.w
-
+    
+    def _is_valid_source(self, layer):
+        if layer.name.endswith(" dotted"):
+            return False
+        if layer.name == PREVIEW_MASTER_NAME:
+            return False
+        return True
 
     def onLayerChange(self, sender=None):
         font = Glyphs.font
@@ -222,7 +244,7 @@ class PendotDesigner:
             return
         alternate_layers = ["<Default>"]
         if layers[0]:
-            alternate_layers.extend([l.name for l in layers[0].parent.layers])
+            alternate_layers.extend([l.name for l in layers[0].parent.layers if self._is_valid_source(l)])
             self.w.tabs[0].contourSource.defaultwidget.setItems(alternate_layers)
             self.w.tabs[0].contourSource.overridewidget.setItems(alternate_layers)
             for tab in (self.w.tabs[0], self.w.tabs[1]):
@@ -233,13 +255,13 @@ class PendotDesigner:
 
     def updateDots(self, sender=None):
         if self.w.tabs.get() == 0:
-            self.filter()
+            self.createLayerPreview()
 
     def reloadValues(self, sender=None):
         for reloader in self.widget_reloaders:
             reloader()
 
-    def filter(self, sender=None):
+    def createLayerPreview(self, sender=None):
         if self.idempotence or not Glyphs.font.selectedLayers:
             return
         self.idempotence = True
@@ -264,10 +286,9 @@ class PendotDesigner:
                 destination_layer.visible = True
                 # Do dotting and redrawing if we are in the edit view
                 if Glyphs.font.parent.windowController().activeEditViewController():
-                    print("We are in edit view")
                     try:
                         destination_layer.parent.beginUndo()
-                        destination_layer.shapes = doDotter(layer, instance)
+                        destination_layer.shapes = doDotter(layer, instance, component=False)
                         destination_layer.parent.endUndo()
                         Glyphs.redraw()
                     except Exception as e:
@@ -287,11 +308,52 @@ class PendotDesigner:
                 return instance
         return None
 
+    def createPreviewMaster(self, sender=None):
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        preview_master = None
+        for master in Glyphs.font.masters:
+            if master.name == PREVIEW_MASTER_NAME:
+                preview_master = master
+                break
+        if not preview_master:
+            preview_master = GSFontMaster()
+            preview_master.name = PREVIEW_MASTER_NAME
+            for new, old in zip(preview_master.metrics, master.metrics):
+                new.position=old.position
+                new.overshoot=old.overshoot
+
+            Glyphs.font.masters.append(preview_master)
+
+        del Glyphs.font.glyphs["_dot"]
+        addComponentGlyph(Glyphs.font, instance)
+
+        for glyph in Glyphs.font.glyphs:
+            if glyph.name == "_dot":
+                continue
+            print(glyph.name)
+            layer = glyph.layers[0]  # Really?
+            # Find target layer
+            preview_layer = None
+            for l in glyph.layers:
+                if l.associatedMasterId == preview_master.id:
+                    preview_layer = l
+                    break
+            if not preview_layer:
+                preview_layer = GSLayer()
+                preview_layer.name = layer.name
+                preview_layer.associatedMasterId = preview_master.id
+                glyph.layers.append(preview_layer)
+            preview_layer.width = layer.width
+            preview_layer.shapes = doDotter(layer, instance, component=True)
+
 
 if Glyphs.font:
     if not hasattr(GSApplication, "_pendotdesigner"):
         setattr(GSApplication, "_pendotdesigner", PendotDesigner())
-    if not hasattr(GSApplication._pendotdesigner, "w") or not GSApplication._pendotdesigner.w:
+    if (
+        not hasattr(GSApplication._pendotdesigner, "w")
+        or not GSApplication._pendotdesigner.w
+    ):
         GSApplication._pendotdesigner.__init__()
     GSApplication._pendotdesigner.w.open()
 else:
