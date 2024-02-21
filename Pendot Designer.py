@@ -211,6 +211,7 @@ class PendotDesigner:
     def finish(self, sender=None):
         Glyphs.removeCallback(self.onLayerChange)
         Glyphs.removeCallback(self.updateDots)
+        del self.w
 
 
     def onLayerChange(self, sender=None):
@@ -274,10 +275,6 @@ class PendotDesigner:
                         print("Error in layer", layer)
                 self.idempotence = False
 
-    def close(self, sender=None):
-        self.w.close()
-        del self.w
-
     @property
     def selectedInstanceName(self):
         return str(self.w.instanceSelector.widget.getItem())
@@ -291,6 +288,10 @@ class PendotDesigner:
 
 
 if Glyphs.font:
-    PendotDesigner()
+    if not hasattr(GSApplication, "_pendotdesigner"):
+        setattr(GSApplication, "_pendotdesigner", PendotDesigner())
+    if not hasattr(GSApplication._pendotdesigner, "w") or not GSApplication._pendotdesigner.w:
+        GSApplication._pendotdesigner.__init__()
+    GSApplication._pendotdesigner.w.open()
 else:
     print("Open a font first")
