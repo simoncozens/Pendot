@@ -3,8 +3,6 @@ from typing import Optional, Union, NamedTuple
 from fontTools.misc.transform import Identity, Transform
 from .constants import KEY
 
-preview = True
-
 try:
     from GlyphsApp import (
         GSFont,
@@ -33,8 +31,6 @@ except:
         LINE,
     )
     import sys
-
-    preview = False
 
     def Message(message):
         print(message)
@@ -205,9 +201,16 @@ def addComponentGlyph(font: GSFont, instance: GSInstance):
     font.glyphs.append(glyph)
     size = instance.userData[KEY+".dotSize"]
     for master in font.masters:
-        layer = GSLayer()
-        glyph._setupLayer(layer, master.id)
-        glyph.layers.append(layer)
+        if glyph.layers[master.id]:
+            layer = glyph.layers[master.id]
+        else:
+            layer = GSLayer()
+            if hasattr(glyph, "_setupLayer"):
+                glyph._setupLayer(layer, master.id)
+            else:
+                layer.layerId = master.id
+                layer.associatedMasterId = master.id
+            glyph.layers.append(layer)
         layer.paths.append(makeCircle((0, 0), size / 2))
 
 
@@ -251,7 +254,7 @@ def findCenters(path: GSPath, params: dict, centers: list[Center]):
         lengthSoFar += arclength(seg)
 
 
-def centersToPaths(centers: list[Center], params):
+def centersToPaths(centers: list[Center], params, component=False):
     if params["preventOverlaps"]:
         newcenters = []
         # Sort, to put forced points first
@@ -267,10 +270,11 @@ def centersToPaths(centers: list[Center], params):
     else:
         newcenters = [c.pos for c in centers]
 
-    if preview:
-        return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
-    else:
+    if component:
+        # Fixme - alter the size of the component if overridden
         return [GSComponent("_dot", c) for c in newcenters]
+    else:
+        return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
 
 
 def insertPointInPathUnlessThere(path, pt: TuplePoint):
@@ -368,7 +372,7 @@ def getParams(layer, instance, cmd_line_params=None):
         pass
     return params
 
-def doDotter(layer, instance, cmd_line_params=None):
+def doDotter(layer, instance, cmd_line_params=None, component=True):
     if layer.parent.name == "_dot":
         return
     params = getParams(layer, instance, cmd_line_params)
@@ -386,7 +390,7 @@ def doDotter(layer, instance, cmd_line_params=None):
     for path in paths:
         for subpath in splitAtForcedNode(path):
             findCenters(subpath, params, centers)
-    new_paths = centersToPaths(centers, params)
+    new_paths = centersToPaths(centers, params, component=component)
 
     for path in sourcelayer.paths:
         for node in path.nodes:
