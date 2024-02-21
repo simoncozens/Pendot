@@ -240,7 +240,7 @@ class PendotDesigner:
             reloader()
 
     def filter(self, sender=None):
-        if self.idempotence:
+        if self.idempotence or not Glyphs.font.selectedLayers:
             return
         self.idempotence = True
         font = Glyphs.font
