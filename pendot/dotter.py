@@ -146,6 +146,8 @@ def pathLength(path: GSPath) -> float:
 
 
 def decomposedPaths(layer: GSLayer, ctm: Optional[Transform] = None) -> list[GSPath]:
+    if hasattr(layer, "copyDecomposedLayer"):
+        return layer.copyDecomposedLayer().paths
     if ctm is None:
         ctm = Identity
     outpaths = []
@@ -368,10 +370,7 @@ def doDotter(layer, instance, cmd_line_params=None):
     else:
         sourcelayer = layer
     centers = []
-    if preview:
-        paths = sourcelayer.paths
-    else:
-        paths = decomposedPaths(sourcelayer)
+    paths = decomposedPaths(sourcelayer)
     if params["splitPaths"]:
         splitPathsAtIntersections(paths)
     for path in paths:
