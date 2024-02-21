@@ -1,7 +1,7 @@
 import math
 from typing import Optional, Union, NamedTuple
 from fontTools.misc.transform import Identity, Transform
-from .constants import KEY
+from .constants import KEY, getParams
 
 try:
     from GlyphsApp import (
@@ -354,28 +354,10 @@ def splitPathsAtIntersections(paths):
                         insertPointInPathUnlessThere(p1, i.pt)
                         insertPointInPathUnlessThere(p2, i.pt)
 
-def getParams(layer, instance, cmd_line_params=None):
-    params = {}
-    for paramname in DOTTER_PARAMS.keys():
-        # First try inside the layer
-        layer_instance_override = KEY+"."+instance.name+"."+paramname
-        if layer_instance_override in layer.userData:
-            params[paramname] = layer.userData[layer_instance_override]
-        # Then try inside the instance
-        elif KEY+"."+paramname in instance.userData:
-            params[paramname] = instance.userData[KEY+"."+paramname]
-        # Then try command line parameters
-        elif cmd_line_params and paramname in cmd_line_params:
-            params[paramname] = cmd_line_params[paramname]
-        else:  # Take the default
-            params[paramname] = DOTTER_PARAMS[paramname]
-        pass
-    return params
-
 def doDotter(layer, instance, cmd_line_params=None, component=True):
     if layer.parent.name == "_dot":
         return
-    params = getParams(layer, instance, cmd_line_params)
+    params = getParams(layer, instance, DOTTER_PARAMS, cmd_line_params=cmd_line_params)
     if (
         params["contourSource"] != "<Default>"
         and layer.parent.layers[params["contourSource"]]

@@ -10,8 +10,7 @@ import sys
 
 sys.path.append(str(Path(__file__).parent.parent / "Plugins" / "Dotter"))
 
-from pendot.dotter import doDotter, KEY, addComponentGlyph
-from pendot import PARAMS
+from pendot import PARAMS, doStroker, KEY, doDotter, addComponentGlyph
 import traceback
 
 
@@ -166,7 +165,7 @@ class PendotDesigner:
             ),
         )
         self.widget_reloaders = []
-        self.w.tabs = vanilla.Tabs("auto", ["Dotter", "Stroker", "Guidelines"])
+        self.w.tabs = vanilla.Tabs("auto", ["Dotter", "Stroker", "Guidelines"], callback=self.createLayerPreview)
         dotterTab, strokerTab, guidelineTab = self.w.tabs
 
         # Set up dotter tab
@@ -175,7 +174,7 @@ class PendotDesigner:
             basepos = (10, 30, -10, 30)
             for name, title, widget, args in controls:
                 component = OverridableComponent(
-                    self, name, basepos, title, widget, args, postChange=self.updateDots
+                    self, name, basepos, title, widget, args, postChange=self.createLayerPreview
                 )
                 setattr(tab, name, component)
                 self.widget_reloaders.append(component.loadValues)
@@ -222,12 +221,12 @@ class PendotDesigner:
         self.w.bind("close", self.finish)
         self.w.open()
         Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
-        Glyphs.addCallback(self.updateDots, "GSUpdateInterface")
+        Glyphs.addCallback(self.createLayerPreview, "GSUpdateInterface")
         self.createLayerPreview()
 
     def finish(self, sender=None):
         Glyphs.removeCallback(self.onLayerChange)
-        Glyphs.removeCallback(self.updateDots)
+        Glyphs.removeCallback(self.createLayerPreview)
         del self.w
     
     def _is_valid_source(self, layer):
@@ -260,18 +259,28 @@ class PendotDesigner:
     def reloadValues(self, sender=None):
         for reloader in self.widget_reloaders:
             reloader()
+    
+    @property
+    def mode(self):
+        tabIndex = self.w.tabs.get()
+        if tabIndex == 0:
+            return "dotter"
+        elif tabIndex == 1:
+            return "stroker"
 
     def createLayerPreview(self, sender=None):
         if self.idempotence or not Glyphs.font.selectedLayers:
             return
         self.idempotence = True
+        layername = self.mode.replace("er", "ed")
+
         font = Glyphs.font
         for layer in Glyphs.font.selectedLayers:
             if layer.layerId != layer.associatedMasterId:
                 continue
             for instance in font.instances:
                 # Find or create a "dotted" layer
-                destination_layer_name = "%s dotted" % (instance.name)
+                destination_layer_name = instance.name + " " + layername
                 if Glyphs.font.glyphs[layer.parent.name].layers[destination_layer_name]:
                     destination_layer = Glyphs.font.glyphs[layer.parent.name].layers[
                         destination_layer_name
@@ -288,7 +297,10 @@ class PendotDesigner:
                 if Glyphs.font.parent.windowController().activeEditViewController():
                     try:
                         destination_layer.parent.beginUndo()
-                        destination_layer.shapes = doDotter(layer, instance, component=False)
+                        if layername == "dotted":
+                            destination_layer.shapes = doDotter(layer, instance, component=False)
+                        elif layername == "stroked":
+                            destination_layer.shapes = doStroker(layer, instance)
                         destination_layer.parent.endUndo()
                         Glyphs.redraw()
                     except Exception as e:
@@ -344,7 +356,10 @@ class PendotDesigner:
                 preview_layer.associatedMasterId = preview_master.id
                 glyph.layers.append(preview_layer)
             preview_layer.width = layer.width
-            preview_layer.shapes = doDotter(layer, instance, component=True)
+            if self.mode == "dotter":
+                preview_layer.shapes = doDotter(layer, instance, component=True)
+            else:
+                preview_layer.shapes = doStroker(layer, instance)
 
 
 if Glyphs.font:

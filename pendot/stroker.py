@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
+from .constants import getParams
 
 try:
     from GlyphsApp import GSNode, GSPath, OFFCURVE, LINE, CURVE
@@ -43,7 +44,8 @@ class Point:
         return cls(pt.position.x, pt.position.y, typ)
 
 
-def doStroker(layer, params: dict):
+def doStroker(layer, instance, cmd_line_params=None):
+    params =  getParams(layer, instance, STROKER_PARAMS, cmd_line_params=cmd_line_params)
     if not layer.paths:
         return
     list_of_list_of_nodes = []
@@ -51,7 +53,6 @@ def doStroker(layer, params: dict):
         list_of_list_of_nodes.append([
             Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)
         ])
-    print(params)
 
     result = cws_rust(list_of_list_of_nodes,
         width = params["strokerWidth"],
@@ -64,12 +65,12 @@ def doStroker(layer, params: dict):
         remove_external = params["removeExternal"],
         segmentwise = params["segmentWise"],
     )
-    layer.shapes = []
+    newpaths = []
     for res_path in result:
         path = GSPath()
         path.closed = True
         for x,y,typ in res_path:
             path.nodes.append(GSNode((x,y), type_map[typ]))
-        layer.shapes.append(path)
-
+        newpaths.append(path)
+    return newpaths
 
