@@ -316,6 +316,14 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
     # print("New path nodes", path.nodes)
 
 
+def boundsIntersect(bounds1, bounds2):
+    return (
+        bounds1.origin.x < bounds2.origin.x + bounds2.size.width
+        and bounds1.origin.x + bounds1.size.width > bounds2.origin.x
+        and bounds1.origin.y < bounds2.origin.y + bounds2.size.height
+        and bounds1.origin.y + bounds1.size.height > bounds2.origin.y
+    )
+
 def splitPathsAtIntersections(paths):
     # We don't necessarily need to split the paths; we can
     # get away with adding a new node and setting it to forced.
@@ -323,6 +331,8 @@ def splitPathsAtIntersections(paths):
         for s1 in p1.segments:
             for p2 in paths:
                 if p1 == p2:
+                    continue
+                if not boundsIntersect(p1.bounds, p2.bounds):
                     continue
                 for s2 in p2.segments:
                     # Yes this is O(n^2). Yes I could improve it.
