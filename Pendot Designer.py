@@ -336,7 +336,11 @@ class PendotDesigner:
         if not preview_master:
             preview_master = GSFontMaster()
             preview_master.name = PREVIEW_MASTER_NAME
-            for new, old in zip(preview_master.metrics(), master.metrics()):
+            if Glyphs.buildNumber >= 3232:
+                zipobject = zip(preview_master.metrics(), master.metrics())
+            else:
+                zipobject = zip(preview_master.metrics, master.metrics)
+            for new, old in zipobject:
                 new.position=old.position
                 new.overshoot=old.overshoot
 
