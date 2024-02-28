@@ -336,7 +336,7 @@ class PendotDesigner:
         if not preview_master:
             preview_master = GSFontMaster()
             preview_master.name = PREVIEW_MASTER_NAME
-            for new, old in zip(preview_master.metrics, master.metrics):
+            for new, old in zip(preview_master.metrics(), master.metrics()):
                 new.position=old.position
                 new.overshoot=old.overshoot
 
