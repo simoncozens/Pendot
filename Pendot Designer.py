@@ -335,16 +335,13 @@ class PendotDesigner:
                 break
         if not preview_master:
             preview_master = GSFontMaster()
-            preview_master.name = PREVIEW_MASTER_NAME
-            if Glyphs.buildNumber >= 3232:
-                zipobject = zip(preview_master.metrics(), master.metrics())
-            else:
-                zipobject = zip(preview_master.metrics, master.metrics)
-            for new, old in zipobject:
-                new.position=old.position
-                new.overshoot=old.overshoot
-
             Glyphs.font.masters.append(preview_master)
+            preview_master.name = PREVIEW_MASTER_NAME
+            preview_master.ascender = master.ascender
+            preview_master.capHeight = master.capHeight
+            preview_master.descender = master.descender
+            preview_master.xHeight = master.xHeight
+
 
         del Glyphs.font.glyphs["_dot"]
         addComponentGlyph(Glyphs.font, instance)
