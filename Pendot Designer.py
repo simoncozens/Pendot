@@ -197,7 +197,7 @@ class OverridableComponent(vanilla.Group):
     def loadValues(self):
         instance = self.owner.selectedInstance
         thisKey = KEY + "." + self.target
-        if thisKey not in instance.userData:
+        if not instance.userData or thisKey not in instance.userData:
             instance.userData[thisKey] = PARAMS[self.target]
         if instance.userData[thisKey]:
             if isinstance(self.defaultwidget, vanilla.PopUpButton):
@@ -431,7 +431,8 @@ class PendotDesigner:
     def reloadGuidelines(self):
         instance = self.selectedInstance or Glyphs.font.instances[0]
         if (
-            KEY + ".guidelines" not in instance.userData
+            not instance.userData
+            or KEY + ".guidelines" not in instance.userData
             or not instance.userData[KEY + ".guidelines"]
         ):
             instance.userData[KEY + ".guidelines"] = [
