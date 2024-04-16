@@ -23,6 +23,7 @@ import traceback
 
 
 PREVIEW_MASTER_NAME = "Pendot Preview"
+QUICK_PREVIEW_LAYER_NAME = "Pendot Quick Preview"
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 
 
@@ -378,6 +379,12 @@ class PendotDesigner:
     def finish(self, sender=None):
         Glyphs.removeCallback(self.onLayerChange)
         Glyphs.removeCallback(self.createLayerPreview)
+        # Make quick preview layer invisible
+        for layer in Glyphs.font.selectedLayers:
+            glyph = layer.parent
+            # Find or create a quick preview layer
+            if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
+                glyph.layers[QUICK_PREVIEW_LAYER_NAME].visible = False
         del self.w
 
     def _is_valid_source(self, layer):
@@ -471,18 +478,17 @@ class PendotDesigner:
 
         for layer in Glyphs.font.selectedLayers:
             if (
-                layer.name == "Pendot Quick Preview"
+                layer.name == QUICK_PREVIEW_LAYER_NAME
                 or layer.name == PREVIEW_MASTER_NAME
             ):
                 continue  # No recursion!
             glyph = layer.parent
             # Find or create a quick preview layer
-            destination_layer_name = "Pendot Quick Preview"
-            if glyph.layers[destination_layer_name]:
-                destination_layer = glyph.layers[destination_layer_name]
+            if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
+                destination_layer = glyph.layers[QUICK_PREVIEW_LAYER_NAME]
             else:
                 destination_layer = GSLayer()
-                destination_layer.name = destination_layer_name
+                destination_layer.name = QUICK_PREVIEW_LAYER_NAME
                 destination_layer.width = layer.width
                 destination_layer.parent = layer.parent
                 destination_layer.associatedMasterId = layer.associatedMasterId
