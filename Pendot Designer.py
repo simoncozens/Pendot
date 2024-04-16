@@ -356,7 +356,7 @@ class PendotDesigner:
         self.w.bind("close", self.finish)
         self.w.open()
         Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
-        Glyphs.addCallback(self.createLayerPreview, "GSUpdateInterface")
+        # Glyphs.addCallback(self.createLayerPreview, "GSUpdateInterface")
         self.createLayerPreview()
 
     def removeGuideline(self, sender=None):
@@ -404,6 +404,7 @@ class PendotDesigner:
                     "Override glyph /" + layers[0].parent.name + "?"
                 )
         self.reloadValues()
+        self.createLayerPreview()
 
     def editGuidelines(self, sender):
         instance = self.selectedInstance or Glyphs.font.instances[0]
@@ -412,10 +413,6 @@ class PendotDesigner:
             for item in self.w.tabs[2].list.get()
         ]
         self.createLayerPreview()
-
-    def updateDots(self, sender=None):
-        if self.w.tabs.get() == 0:
-            self.createLayerPreview()
 
     def reloadValues(self, sender=None):
         instance = self.selectedInstance or Glyphs.font.instances[0]
@@ -463,56 +460,54 @@ class PendotDesigner:
 
     def createLayerPreview(self, sender=None):
         # Store the current mode inside the instance object
-        instance = self.selectedInstance or Glyphs.font.instances[0]
+        instance = self.selectedInstance
+        if not instance:
+            return
         instance.userData[KEY + ".mode"] = self.mode
 
+        if self.idempotence:
+            return
         self.idempotence = True
-        if self.mode == "guides":
-            layername = "guides"
-        else:
-            layername = self.mode.replace("er", "ed")
 
-        font = Glyphs.font
         for layer in Glyphs.font.selectedLayers:
-            if layer.layerId != layer.associatedMasterId:
-                continue
-            for instance in font.instances:
-                # Find or create a "dotted" layer
-                destination_layer_name = instance.name + " " + layername
-                if Glyphs.font.glyphs[layer.parent.name].layers[destination_layer_name]:
-                    destination_layer = Glyphs.font.glyphs[layer.parent.name].layers[
-                        destination_layer_name
-                    ]
-                else:
-                    destination_layer = GSLayer()
-                    destination_layer.name = destination_layer_name
-                    destination_layer.width = layer.width
-                    destination_layer.parent = layer.parent
-                    destination_layer.associatedMasterId = layer.associatedMasterId
-                    layer.parent.layers.append(destination_layer)
+            if (
+                layer.name == "Pendot Quick Preview"
+                or layer.name == PREVIEW_MASTER_NAME
+            ):
+                continue  # No recursion!
+            glyph = layer.parent
+            # Find or create a quick preview layer
+            destination_layer_name = "Pendot Quick Preview"
+            if glyph.layers[destination_layer_name]:
+                destination_layer = glyph.layers[destination_layer_name]
+            else:
+                destination_layer = GSLayer()
+                destination_layer.name = destination_layer_name
+                destination_layer.width = layer.width
+                destination_layer.parent = layer.parent
+                destination_layer.associatedMasterId = layer.associatedMasterId
+                glyph.layers.append(destination_layer)
+            # Do dotting and redrawing if we are in the edit view
+            if Glyphs.font.parent.windowController().activeEditViewController():
                 destination_layer.visible = True
-                # Do dotting and redrawing if we are in the edit view
-                if Glyphs.font.parent.windowController().activeEditViewController():
-                    try:
-                        destination_layer.parent.beginUndo()
-                        if layername == "dotted":
-                            destination_layer.shapes = doDotter(
-                                layer, instance, component=False
-                            )
-                        elif layername == "stroked":
-                            destination_layer.shapes = doStroker(layer, instance)
-                        else:
-                            destination_layer.shapes = (
-                                layer.copyDecomposedLayer().shapes
-                            )
-                            add_guidelines_to_layer(destination_layer, instance)
-                        destination_layer.parent.endUndo()
-                        Glyphs.redraw()
-                    except Exception as e:
-                        print(traceback.format_exc())
-                        print(e)
-                        print("Error in layer", layer)
-                self.idempotence = False
+                try:
+                    destination_layer.parent.beginUndo()
+                    if self.mode == "dotter":
+                        destination_layer.shapes = doDotter(
+                            layer, instance, component=False
+                        )
+                    elif self.mode == "stroker":
+                        destination_layer.shapes = doStroker(layer, instance)
+                    else:
+                        destination_layer.shapes = layer.copyDecomposedLayer().shapes
+                        add_guidelines_to_layer(destination_layer, instance)
+                    destination_layer.parent.endUndo()
+                    Glyphs.redraw()
+                except Exception as e:
+                    print(traceback.format_exc())
+                    print(e)
+                    print("Error in layer", layer)
+        self.idempotence = False
 
     @property
     def selectedInstanceName(self):
@@ -547,7 +542,6 @@ class PendotDesigner:
         for glyph in Glyphs.font.glyphs:
             if glyph.name == "_dot":
                 continue
-            print(glyph.name)
             layer = glyph.layers[0]  # Really?
             # Find target layer
             preview_layer = None
