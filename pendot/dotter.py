@@ -196,13 +196,15 @@ def makeCircle(center: TuplePoint, radius: float):
 
 def addComponentGlyph(font: GSFont, instance: GSInstance):
     if font.glyphs["_dot"]:
-        return
-    glyph = GSGlyph("_dot")
-    font.glyphs.append(glyph)
+        glyph = font.glyphs["_dot"]
+    else:
+        glyph = GSGlyph("_dot")
+        font.glyphs.append(glyph)
     size = instance.userData[KEY+".dotSize"]
     for master in font.masters:
         if glyph.layers[master.id]:
             layer = glyph.layers[master.id]
+            layer.shapes = []
         else:
             layer = GSLayer()
             if hasattr(glyph, "_setupLayer"):
