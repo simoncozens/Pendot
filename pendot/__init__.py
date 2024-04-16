@@ -33,7 +33,8 @@ def dot_font(font: GSFont, instance: str):
             if layer.layerId == layer.associatedMasterId:
                 results[layer] = doDotter(layer, gsinstance)
     for layer, shapes in results.items():
-        layer.shapes = shapes
+        if shapes:
+            layer.shapes = shapes
     addComponentGlyph(font, gsinstance)
     return font
 
