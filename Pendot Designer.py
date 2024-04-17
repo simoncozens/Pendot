@@ -61,6 +61,11 @@ GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 # of tuples, each of which is a pair of (height, thickness). The height is
 # either a number of font units, or one of the names of the Glyphs metrics.
 
+def safe_int(s):
+    try:
+        return int(s)
+    except Exception:
+        return 0
 
 # Vanilla backports
 class SteppingTextBox(vanilla.EditText):
@@ -175,6 +180,8 @@ class OverridableComponent(vanilla.Group):
         instance = self.owner.selectedInstance
         thisKey = KEY + "." + self.target
         typecast = type(PARAMS[self.target])
+        if typecast == int:
+            typecast = safe_int
         if isinstance(self.defaultwidget, vanilla.PopUpButton):
             instance.userData[thisKey] = typecast(sender.getItem())
         else:
@@ -188,6 +195,8 @@ class OverridableComponent(vanilla.Group):
         )
         layer = Glyphs.font.selectedLayers[0]
         typecast = type(PARAMS[self.target])
+        if typecast == int:
+            typecast = safe_int
         if isinstance(self.overridewidget, vanilla.PopUpButton):
             layer.userData[layer_instance_override] = typecast(sender.getItem())
         else:
