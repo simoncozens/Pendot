@@ -1,4 +1,4 @@
-from .constants import KEY
+from .constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from .dotter import GSFont, DOTTER_PARAMS, doDotter, addComponentGlyph
 from .stroker import doStroker, STROKER_PARAMS
 from .guidelines import drawRect
@@ -30,11 +30,18 @@ def dot_font(font: GSFont, instance: str):
     results = {}
     for glyph in progress(font.glyphs):
         for layer in glyph.layers:
+            if (
+                layer.name == QUICK_PREVIEW_LAYER_NAME
+                or layer.name == PREVIEW_MASTER_NAME
+            ):
+                continue
             if layer.layerId == layer.associatedMasterId:
                 results[layer] = doDotter(layer, gsinstance)
     for layer, shapes in results.items():
         if shapes:
             layer.shapes = shapes
+    # Delete preview master
+    font.masters = [m for m in font.masters if m.name != PREVIEW_MASTER_NAME]
     addComponentGlyph(font, gsinstance)
     return font
 

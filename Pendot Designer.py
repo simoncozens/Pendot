@@ -19,11 +19,13 @@ from pendot import (
     addComponentGlyph,
     add_guidelines_to_layer,
 )
+from pendot.constants import (
+    PREVIEW_MASTER_NAME,
+    QUICK_PREVIEW_LAYER_NAME,
+)
 import traceback
 
 
-PREVIEW_MASTER_NAME = "Pendot Preview"
-QUICK_PREVIEW_LAYER_NAME = "Pendot Quick Preview"
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 
 
@@ -61,11 +63,13 @@ GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 # of tuples, each of which is a pair of (height, thickness). The height is
 # either a number of font units, or one of the names of the Glyphs metrics.
 
+
 def safe_int(s):
     try:
         return int(s)
     except Exception:
         return 0
+
 
 # Vanilla backports
 class SteppingTextBox(vanilla.EditText):
