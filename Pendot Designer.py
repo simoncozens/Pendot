@@ -509,8 +509,8 @@ class PendotDesigner:
             # Do dotting and redrawing if we are in the edit view
             if Glyphs.font.parent.windowController().activeEditViewController():
                 destination_layer.visible = True
+                glyph.undoManager().disableUndoRegistration()
                 try:
-                    destination_layer.parent.beginUndo()
                     if self.mode == "dotter":
                         destination_layer.shapes = doDotter(
                             layer, instance, component=False
@@ -520,12 +520,12 @@ class PendotDesigner:
                     else:
                         destination_layer.shapes = layer.copyDecomposedLayer().shapes
                         add_guidelines_to_layer(destination_layer, instance)
-                    destination_layer.parent.endUndo()
                     Glyphs.redraw()
                 except Exception as e:
                     print(traceback.format_exc())
                     print(e)
                     print("Error in layer", layer)
+                glyph.undoManager().enableUndoRegistration()
         self.idempotence = False
 
     @property
@@ -561,6 +561,7 @@ class PendotDesigner:
         for glyph in Glyphs.font.glyphs:
             if glyph.name == "_dot":
                 continue
+            glyph.undoManager().disableUndoRegistration()
             layer = glyph.layers[0]  # Really?
             # Find target layer
             preview_layer = None
@@ -578,6 +579,7 @@ class PendotDesigner:
                 preview_layer.shapes = doDotter(layer, instance, component=True)
             else:
                 preview_layer.shapes = doStroker(layer, instance)
+            glyph.undoManager().enableUndoRegistration()
         Glyphs.redraw()
 
 
