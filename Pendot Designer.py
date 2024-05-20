@@ -401,6 +401,8 @@ class PendotDesigner:
         del self.w
 
     def _is_valid_source(self, layer):
+        if not layer:
+            return False
         if layer.name.endswith(" dotted"):
             return False
         if layer.name == PREVIEW_MASTER_NAME:
@@ -484,6 +486,8 @@ class PendotDesigner:
         if not instance:
             return
         instance.userData[KEY + ".mode"] = self.mode
+        if not Glyphs.font:
+            return
 
         if self.idempotence:
             return
