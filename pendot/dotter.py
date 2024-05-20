@@ -1,3 +1,4 @@
+import copy
 import math
 from typing import Optional, Union, NamedTuple
 from fontTools.misc.transform import Identity, Transform
@@ -149,7 +150,11 @@ def decomposedPaths(layer: GSLayer, ctm: Optional[Transform] = None) -> list[GSP
     outpaths = []
     for shape in layer.shapes:
         if isinstance(shape, GSPath):
-            path = shape.clone()
+            path = GSPath()
+            for node in shape.nodes:
+                copied = node.clone()
+                copied._userData = copy.deepcopy(node._userData)
+                path.nodes.append(copied)
             path.applyTransform(ctm)
             outpaths.append(path)
         else:
