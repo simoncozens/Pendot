@@ -106,7 +106,10 @@ def isForced(node: GSNode) -> bool:
 def findIntersections(seg1: Segment, seg2: Segment) -> list[Intersection]:
     seg1 = seg_to_tuples(seg1)
     seg2 = seg_to_tuples(seg2)
-    return segmentSegmentIntersections(seg1, seg2)
+    try:
+        return segmentSegmentIntersections(seg1, seg2)
+    except ZeroDivisionError:  # Defend against bad programmer (myself)
+        return []
 
 
 def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegment]:
@@ -341,10 +344,10 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
 
 def boundsIntersect(bounds1, bounds2):
     return (
-        bounds1.origin.x < bounds2.origin.x + bounds2.size.width
-        and bounds1.origin.x + bounds1.size.width > bounds2.origin.x
-        and bounds1.origin.y < bounds2.origin.y + bounds2.size.height
-        and bounds1.origin.y + bounds1.size.height > bounds2.origin.y
+        bounds1.origin.x <= bounds2.origin.x + bounds2.size.width
+        and bounds1.origin.x + bounds1.size.width >= bounds2.origin.x
+        and bounds1.origin.y <= bounds2.origin.y + bounds2.size.height
+        and bounds1.origin.y + bounds1.size.height >= bounds2.origin.y
     )
 
 
