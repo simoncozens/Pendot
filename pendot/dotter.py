@@ -1,8 +1,16 @@
-import copy
 import math
-from typing import Optional, Union, NamedTuple
-from fontTools.misc.transform import Identity, Transform
+from typing import NamedTuple
 from .constants import KEY, getParams
+from .utils import (
+    TuplePoint,
+    distance,
+    Segment,
+    seg_to_tuples,
+    pathLength,
+    arclength,
+    TupleSegment,
+    decomposedPaths,
+)
 
 try:
     from GlyphsApp import (
@@ -42,17 +50,11 @@ try:
     from fontTools.misc.bezierTools import (
         Intersection,
         segmentSegmentIntersections,
-        approximateCubicArcLength,
-        calcCubicArcLength,
         linePointAtT,
         splitCubicAtT,
     )
 except:
     Message("You need to install the fontTools library to run dotter")
-
-
-Segment = Union["GSPathSegment", list[GSNode]]
-TuplePoint = tuple[float, float]
 
 
 class Center(NamedTuple):
@@ -63,8 +65,6 @@ class Center(NamedTuple):
         return distance(self.pos, other.pos)
 
 
-TupleSegment = list[TuplePoint]
-
 DOTTER_PARAMS = {
     "dotSize": 15,
     "dotSpacing": 15,
@@ -72,10 +72,6 @@ DOTTER_PARAMS = {
     "splitPaths": False,
     "contourSource": "<Default>",
 }
-
-
-def distance(a: TuplePoint, b: TuplePoint) -> float:
-    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
 def set_locally_forced(node: GSNode) -> None:
@@ -106,32 +102,10 @@ def isForced(node: GSNode) -> bool:
     )
 
 
-# All the curve-handling code here has to work both in Glyphs and glyphsLib.
-# Here are some utility functions to bridge the gap
-def seg_to_tuples(seg: Segment) -> TupleSegment:
-    if type(seg).__name__ == "GSPathSegment":
-        seg = seg.segmentStruct()[0][0 : seg.countOfPoints()]
-    return [(pt.x, pt.y) for pt in seg]
-
-
 def findIntersections(seg1: Segment, seg2: Segment) -> list[Intersection]:
     seg1 = seg_to_tuples(seg1)
     seg2 = seg_to_tuples(seg2)
     return segmentSegmentIntersections(seg1, seg2)
-
-
-def arclength(seg: Union[Segment, TupleSegment], approx=False) -> float:
-    # For GSSegments, we could just return seg.length() here, but we want to
-    # ensure that the same algorithm is used in both Glyphs and
-    # glyphsLib for visual consistency.
-
-    if not isinstance(seg[0], tuple):
-        seg = seg_to_tuples(seg)
-    if len(seg) == 2:
-        return distance(seg[0], seg[1])
-    if approx:
-        return approximateCubicArcLength(*seg)
-    return calcCubicArcLength(*seg)
 
 
 def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegment]:
@@ -141,37 +115,15 @@ def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegmen
     return splitCubicAtT(*seg, t)
 
 
-def pathLength(path: GSPath) -> float:
-    return sum(arclength(seg) for seg in path.segments)
-
-
-def decomposedPaths(layer: GSLayer, ctm: Optional[Transform] = None) -> list[GSPath]:
-    if hasattr(layer, "copyDecomposedLayer"):
-        return layer.copyDecomposedLayer().paths
-    if ctm is None:
-        ctm = Identity
-    outpaths = []
-    for shape in layer.shapes:
-        if isinstance(shape, GSPath):
-            path = GSPath()
-            for node in shape.nodes:
-                copied = node.clone()
-                copied._userData = copy.deepcopy(node._userData)
-                path.nodes.append(copied)
-            path.applyTransform(ctm)
-            outpaths.append(path)
-        else:
-            their_ctm = Transform(*shape.transform).transform(ctm)
-            outpaths.extend(decomposedPaths(shape.layer, their_ctm))
-    return outpaths
-
 # This is just for display purposes; for the real thing we'll use a
 # component
+
 
 def append_cubicseg(path, points):
     path.nodes.append(GSNode(points[0], OFFCURVE))
     path.nodes.append(GSNode(points[1], OFFCURVE))
     path.nodes.append(GSNode(points[2], CURVE))
+
 
 def makeCircle(center: TuplePoint, radius: float):
     centerx, centery = center
@@ -182,18 +134,18 @@ def makeCircle(center: TuplePoint, radius: float):
     # Work out the numbers for a unit circle, then scale and
     # move them.
     a_circle = [
-        [ (1, 0.265216), (0.894643, 0.51957), (0.7071,0.7071) ],
-        [ (0.51957, 0.894643), (0.265216, 1), (0, 1) ],
-        [ (-0.265216,1), (-0.51957, 0.894643), (-0.7071,0.7071) ],
-        [ (-0.894643, 0.51957), (-1, 0.265216), (-1, 0) ],
-        [ (-1, -0.265216), (-0.894643, -0.51957), (-0.7071, -0.7071) ],
-        [ (-0.51957, -0.894643), (-0.265216, -1), (0, -1) ],
-        [ (0.265216,-1), (0.51957, -0.894643), (0.7071,-0.7071) ],
-        [ (0.894643, -0.51957), (1, -0.265216), (1, 0) ],
+        [(1, 0.265216), (0.894643, 0.51957), (0.7071, 0.7071)],
+        [(0.51957, 0.894643), (0.265216, 1), (0, 1)],
+        [(-0.265216, 1), (-0.51957, 0.894643), (-0.7071, 0.7071)],
+        [(-0.894643, 0.51957), (-1, 0.265216), (-1, 0)],
+        [(-1, -0.265216), (-0.894643, -0.51957), (-0.7071, -0.7071)],
+        [(-0.51957, -0.894643), (-0.265216, -1), (0, -1)],
+        [(0.265216, -1), (0.51957, -0.894643), (0.7071, -0.7071)],
+        [(0.894643, -0.51957), (1, -0.265216), (1, 0)],
     ]
     for segment in a_circle:
-        append_cubicseg(path,
-            [ (x*radius + centerx, y*radius + centery) for (x,y) in segment ]
+        append_cubicseg(
+            path, [(x * radius + centerx, y * radius + centery) for (x, y) in segment]
         )
     path.closed = True
     for ix, node in enumerate(path.nodes):
@@ -208,7 +160,7 @@ def addComponentGlyph(font: GSFont, instance: GSInstance):
     else:
         glyph = GSGlyph("_dot")
         font.glyphs.append(glyph)
-    size = instance.userData[KEY+".dotSize"]
+    size = instance.userData[KEY + ".dotSize"]
     for master in font.masters:
         if glyph.layers[master.id]:
             layer = glyph.layers[master.id]
@@ -257,7 +209,7 @@ def findCenters(path: GSPath, params: dict, centers: list[Center]):
         newcenters.append(Center(pos=segs[0][0], forced=True))
         newcenters.append(Center(pos=segs[-1][-1], forced=True))
         # Adjust space such that end point falls at integer multiples
-        for pathtime, seg in enumerate(segs):
+        for _pathtime, seg in enumerate(segs):
             for t in range(1, LIMIT):
                 left, _right = splitSegment(seg, t / LIMIT)
                 lengthHere = lengthSoFar + arclength(left, approx=True)
@@ -338,9 +290,9 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
     nodes_to_insert = [GSNode(x, typ) for x, typ in zip(new_left_right, node_types)]
     set_locally_forced(nodes_to_insert[middle])
     newnodes = list(path.nodes)
-    newnodes[
-        insertion_point_index : insertion_point_index + middle + 1
-    ] = nodes_to_insert
+    newnodes[insertion_point_index : insertion_point_index + middle + 1] = (
+        nodes_to_insert
+    )
     path.nodes = newnodes
     # print("New path nodes", path.nodes)
 
@@ -352,6 +304,7 @@ def boundsIntersect(bounds1, bounds2):
         and bounds1.origin.y < bounds2.origin.y + bounds2.size.height
         and bounds1.origin.y + bounds1.size.height > bounds2.origin.y
     )
+
 
 def splitPathsAtIntersections(paths):
     # We don't necessarily need to split the paths; we can
@@ -378,6 +331,7 @@ def splitPathsAtIntersections(paths):
                         # )
                         insertPointInPathUnlessThere(p1, i.pt)
                         insertPointInPathUnlessThere(p2, i.pt)
+
 
 def doDotter(layer, instance, cmd_line_params=None, component=True):
     if layer.parent.name == "_dot":
