@@ -59,6 +59,9 @@ class Center(NamedTuple):
     pos: TuplePoint
     forced: bool
 
+    def distance(self, other):
+        return distance(self.pos, other.pos)
+
 
 TupleSegment = list[TuplePoint]
 
@@ -237,28 +240,43 @@ def splitAtForcedNode(path: GSPath):
 
 def findCenters(path: GSPath, params: dict, centers: list[Center]):
     segs = [seg_to_tuples(seg) for seg in path.segments]
-    lengthSoFar = 0
     LIMIT = 1000
-    lastLength = 0
-    plen = pathLength(path)
+    # The effective path length, i.e. the amount we have to fill
+    # gets reduced by half a dot at the start and half a dot at the end
+    plen = pathLength(path) - params["dotSize"]
     centerSpace = params["dotSize"] + params["dotSpacing"]
     if not segs or not segs[0]:
         return
-    centers.append(Center(pos=segs[0][0], forced=True))
-    centers.append(Center(pos=segs[-1][-1], forced=True))
-    # Adjust space such that end point falls at integer multiples
-    # XXX We should add some "flex" in here to push it looser/tighter
+    iterations = 0
     if centerSpace < plen:
         centerSpace = plen / math.ceil(plen / centerSpace)
-    for pathtime, seg in enumerate(segs):
-        for t in range(1, LIMIT):
-            left, _right = splitSegment(seg, t / LIMIT)
-            lengthHere = lengthSoFar + arclength(left, approx=True)
-            if lengthHere > lastLength + centerSpace:
-                centers.append(Center(pos=left[-1], forced=False))
-                lastLength = lengthHere
+    while True:
+        lengthSoFar = 0
+        newcenters = []
+        lastLength = 0
+        newcenters.append(Center(pos=segs[0][0], forced=True))
+        newcenters.append(Center(pos=segs[-1][-1], forced=True))
+        # Adjust space such that end point falls at integer multiples
+        for pathtime, seg in enumerate(segs):
+            for t in range(1, LIMIT):
+                left, _right = splitSegment(seg, t / LIMIT)
+                lengthHere = lengthSoFar + arclength(left, approx=True)
+                if lengthHere > lastLength + centerSpace:
+                    newcenters.append(Center(pos=left[-1], forced=False))
+                    lastLength = lengthHere
 
-        lengthSoFar += arclength(seg)
+            lengthSoFar += arclength(seg)
+        if newcenters[1].distance(newcenters[-1]) > params["dotSize"]:
+            centers.extend(newcenters)
+            return
+        # Try again...
+        centerSpace += 1
+        iterations += 1
+        if iterations > 100:
+            print("Could not find a good solution, approximating")
+            centers.extend(newcenters)
+            return
+    print(centers)
 
 
 def centersToPaths(centers: list[Center], params, component=False):
