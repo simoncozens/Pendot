@@ -7,6 +7,7 @@ try:
 except:
     from glyphsLib.classes import GSNode, GSPath, OFFCURVE, LINE, CURVE
 
+from .utils import decomposedPaths
 from ufostroker.ufostroker import constant_width_stroke as cws_rust
 
 STROKER_PARAMS = {
@@ -19,20 +20,17 @@ STROKER_PARAMS = {
     "joinType": "round",
     "removeExternal": False,
     "removeInternal": False,
-    "segmentWise": False
+    "segmentWise": False,
 }
 
-type_map = {
-    "": OFFCURVE,
-    "curve": CURVE,
-    "line": LINE
-}
+type_map = {"": OFFCURVE, "curve": CURVE, "line": LINE}
+
 
 @dataclass
 class Point:
     x: float
     y: float
-    type: Optional[str] # move,line,curve,None
+    type: Optional[str]  # move,line,curve,None
 
     @classmethod
     def fromGSPoint(cls, pt, ix=None):
@@ -40,19 +38,20 @@ class Point:
         if typ == OFFCURVE:
             typ = None
         if ix is not None and ix == 0:
-            typ = 'move'
+            typ = "move"
         return cls(pt.position.x, pt.position.y, typ)
 
 
 def doStroker(layer, instance, cmd_line_params=None):
-    params =  getParams(layer, instance, STROKER_PARAMS, cmd_line_params=cmd_line_params)
+    params = getParams(layer, instance, STROKER_PARAMS, cmd_line_params=cmd_line_params)
     if not layer.paths:
         return
     list_of_list_of_nodes = []
-    for path in layer.paths:
-        list_of_list_of_nodes.append([
-            Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)
-        ])
+
+    for path in decomposedPaths(layer):
+        list_of_list_of_nodes.append(
+            [Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)]
+        )
 
     startcap = params["startCap"].lower()
     endcap = params["endCap"].lower()
@@ -63,24 +62,24 @@ def doStroker(layer, instance, cmd_line_params=None):
         raise ValueError("Unknown end cap type")
     if jointype not in ["round", "bevel", "mitre", "circle"]:
         raise ValueError("Unknown join type")
-    
-    result = cws_rust(list_of_list_of_nodes,
-        width = float(params["strokerWidth"]),
-        height = float(params["strokerHeight"]),
-        angle = float(params["strokerAngle"] or 0),
-        startcap = startcap,
-        endcap = endcap,
-        jointype = jointype,
-        remove_internal = bool(params["removeInternal"]),
-        remove_external = bool(params["removeExternal"]),
-        segmentwise = bool(params["segmentWise"]),
+
+    result = cws_rust(
+        list_of_list_of_nodes,
+        width=float(params["strokerWidth"]),
+        height=float(params["strokerHeight"]),
+        angle=float(params["strokerAngle"] or 0),
+        startcap=startcap,
+        endcap=endcap,
+        jointype=jointype,
+        remove_internal=bool(params["removeInternal"]),
+        remove_external=bool(params["removeExternal"]),
+        segmentwise=bool(params["segmentWise"]),
     )
     newpaths = []
     for res_path in result:
         path = GSPath()
         path.closed = True
-        for x,y,typ in res_path:
-            path.nodes.append(GSNode((x,y), type_map[typ]))
+        for x, y, typ in res_path:
+            path.nodes.append(GSNode((x, y), type_map[typ]))
         newpaths.append(path)
     return newpaths
-
