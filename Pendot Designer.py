@@ -581,8 +581,11 @@ class PendotDesigner:
             preview_layer.width = layer.width
             if self.mode == "dotter":
                 preview_layer.shapes = doDotter(layer, instance, component=True)
-            else:
+            elif self.mode == "stroker":
                 preview_layer.shapes = doStroker(layer, instance)
+            else:
+                preview_layer.shapes = layer.copyDecomposedLayer().shapes
+                add_guidelines_to_layer(preview_layer, instance)
             glyph.undoManager().enableUndoRegistration()
         Glyphs.redraw()
 
