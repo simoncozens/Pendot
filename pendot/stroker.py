@@ -65,8 +65,8 @@ def doStroker(layer, instance, cmd_line_params=None):
 
     result = cws_rust(
         list_of_list_of_nodes,
-        width=float(params["strokerWidth"]),
-        height=float(params["strokerHeight"]),
+        width=float(params["strokerWidth"]) / 2,
+        height=float(params["strokerHeight"]) / 2,
         angle=float(params["strokerAngle"] or 0),
         startcap=startcap,
         endcap=endcap,
