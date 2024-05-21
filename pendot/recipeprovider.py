@@ -2,6 +2,8 @@ import logging
 import os
 import glyphsLib
 from gftools.builder.recipeproviders.googlefonts import GFBuilder, DEFAULTS
+from pathlib import Path
+from ninja.ninja_syntax import escape_path
 
 
 log = logging.getLogger("pendot")
@@ -45,7 +47,20 @@ class Pendot(GFBuilder):
             {"source": new_glyphs_file},
         ]
         # Do guidelines here...
+        ufo_target = str(self.instance_dir / f"{filename}.ufo")
         self.recipe[target] += [
+            # Manual reimplementation of instantiateUfo operation
+            # because the source doesn't exist yet. We do this rather
+            # than compiling the glyphs file directly because it allows us
+            # to set instance-specific values (stylename, etc)
+            {
+                "operation": "exec",
+                "exe": "fontmake",
+                "args": f'-i "{family_name} {instance.name}" -o ufo -g {new_glyphs_file} --output-path {ufo_target}',
+            },
+            {
+                "source": ufo_target,
+            },
             {
                 "operation": "buildTTF",
                 "fontmake_args": self.fontmake_args(self.sources[0]),
@@ -57,3 +72,7 @@ class Pendot(GFBuilder):
         if self.config.get("includeSourceFixes"):
             return {"operation": "fix", "args": "--include-source-fixes"}
         return {"operation": "fix"}
+
+    @property
+    def instance_dir(self):
+        return Path("build") / "instance_ufos"
