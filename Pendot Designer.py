@@ -403,7 +403,7 @@ class PendotDesigner:
         del self.w
 
     def _is_valid_source(self, layer):
-        if not layer:
+        if not layer or not layer.name:
             return False
         if layer.name.endswith(" dotted"):
             return False
