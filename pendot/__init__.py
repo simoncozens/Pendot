@@ -1,3 +1,4 @@
+from typing import Optional
 from .constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from .dotter import GSFont, DOTTER_PARAMS, doDotter, addComponentGlyph
 from .stroker import doStroker, STROKER_PARAMS
@@ -16,10 +17,7 @@ PARAMS = {**STROKER_PARAMS, **DOTTER_PARAMS}
 logger = getLogger(__name__)
 
 
-# In the future we might want to create an output font with multiple
-# instances; for now we just take a single instance name and apply
-# its parameters to all master layers
-def dot_font(font: GSFont, instance: str):
+def find_instance(font: GSFont, instance: str):
     gsinstance = None
     for i in font.instances:
         if i.name == instance:
@@ -27,7 +25,27 @@ def dot_font(font: GSFont, instance: str):
             break
     if not gsinstance:
         raise ValueError("Could not find instance " + instance)
+    return gsinstance
+
+
+# In the future we might want to create an output font with multiple
+# instances; for now we just take a single instance name and apply
+# its parameters to all master layers
+def dot_font(font: GSFont, instance: str, overrides: Optional[dict] = None):
+    transform_font(font, instance, doDotter, overrides)
+    gsinstance = find_instance(font, instance)
+    addComponentGlyph(font, gsinstance)
+    return font
+
+
+def stroke_font(font: GSFont, instance: str):
+    transform_font(font, instance, doStroker)
+
+
+def transform_font(font: GSFont, instance: str, func, overrides: Optional[dict] = None):
+    gsinstance = find_instance(font, instance)
     results = {}
+    font.masters = [m for m in font.masters if m.name != PREVIEW_MASTER_NAME]
     for glyph in progress(font.glyphs):
         for layer in glyph.layers:
             if (
@@ -36,21 +54,12 @@ def dot_font(font: GSFont, instance: str):
             ):
                 continue
             if layer.layerId == layer.associatedMasterId:
-                results[layer] = doDotter(layer, gsinstance)
+                results[layer] = func(layer, gsinstance, overrides)
     for layer, shapes in results.items():
         if shapes:
             layer.shapes = shapes
     # Delete preview master
-    font.masters = [m for m in font.masters if m.name != PREVIEW_MASTER_NAME]
-    addComponentGlyph(font, gsinstance)
     return font
-
-
-# This is expected to be used in the Designer for previewing
-def stroke_font(font: GSFont, params: dict = {}):
-    for glyph in progress(font.glyphs):
-        for layer in glyph.layers:
-            doStroker(layer, params)
 
 
 def add_guidelines_to_layer(layer, instance):
