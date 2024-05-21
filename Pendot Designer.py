@@ -211,6 +211,8 @@ class OverridableComponent(vanilla.Group):
     def loadValues(self):
         instance = self.owner.selectedInstance
         thisKey = KEY + "." + self.target
+        if not instance:
+            return
         if not instance.userData or thisKey not in instance.userData:
             instance.userData[thisKey] = PARAMS[self.target]
         if instance.userData[thisKey]:
