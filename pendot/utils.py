@@ -85,6 +85,7 @@ def decomposedPaths(layer: GSLayer, ctm: Optional[Transform] = None) -> list[GSP
                 copied = node.clone()
                 copied._userData = copy.deepcopy(node._userData)
                 path.nodes.append(copied)
+            path.closed = shape.closed
             path.applyTransform(ctm)
             outpaths.append(path)
         else:

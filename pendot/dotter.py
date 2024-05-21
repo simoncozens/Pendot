@@ -53,6 +53,7 @@ try:
         linePointAtT,
         splitCubicAtT,
     )
+    from fontTools.varLib.models import piecewiseLinearMap
 except:
     Message("You need to install the fontTools library to run dotter")
 
@@ -190,45 +191,80 @@ def splitAtForcedNode(path: GSPath):
     yield new_path
 
 
+def interpolate_lut(t, lut):
+    lengths_map = {x[0]: x[1] for x in lut}
+    xs_map = {x[0]: x[2] for x in lut}
+    ys_map = {x[0]: x[3] for x in lut}
+    return piecewiseLinearMap(t, lengths_map), (
+        piecewiseLinearMap(t, xs_map),
+        piecewiseLinearMap(t, ys_map),
+    )
+
+
 def findCenters(path: GSPath, params: dict, centers: list[Center]):
     segs = [seg_to_tuples(seg) for seg in path.segments]
-    LIMIT = 1000
-    # The effective path length, i.e. the amount we have to fill
-    # gets reduced by half a dot at the start and half a dot at the end
-    plen = pathLength(path) - params["dotSize"]
-    centerSpace = params["dotSize"] + params["dotSpacing"]
     if not segs or not segs[0]:
         return
-    iterations = 0
-    if centerSpace < plen:
-        centerSpace = plen / math.ceil(plen / centerSpace)
-    while True:
-        lengthSoFar = 0
-        newcenters = []
-        lastLength = 0
-        newcenters.append(Center(pos=segs[0][0], forced=True))
-        newcenters.append(Center(pos=segs[-1][-1], forced=True))
-        # Adjust space such that end point falls at integer multiples
-        for _pathtime, seg in enumerate(segs):
-            for t in range(1, LIMIT):
-                left, _right = splitSegment(seg, t / LIMIT)
-                lengthHere = lengthSoFar + arclength(left, approx=True)
-                if lengthHere > lastLength + centerSpace:
-                    newcenters.append(Center(pos=left[-1], forced=False))
-                    lastLength = lengthHere
 
-            lengthSoFar += arclength(seg)
-        if newcenters[1].distance(newcenters[-1]) > params["dotSize"]:
-            centers.extend(newcenters)
-            return
-        # Try again...
-        centerSpace += 1
+    LIMIT = 100
+    plen = pathLength(path)
+    lengthSoFar = 0
+    x_lut = {
+        0: segs[0][0][0],
+        1: segs[-1][-1][0],
+    }
+    y_lut = {
+        0: segs[0][0][1],
+        1: segs[-1][-1][1],
+    }
+
+    for seg in segs:
+        seglen = arclength(seg)
+        for t in range(1, LIMIT):
+            local_t = t / LIMIT
+            left, _right = splitSegment(seg, local_t)
+            lengthHere = lengthSoFar + arclength(left, approx=True)
+            global_t = lengthHere / plen
+            x_lut[global_t] = left[-1][0]
+            y_lut[global_t] = left[-1][1]
+        lengthSoFar += seglen
+
+    dotsize = params["dotSize"]
+    orig_preferred_step = params["dotSize"] + params["dotSpacing"]
+    max_flex = params["dotSize"] + params["dotSpacing"] * 1.25
+    preferred_step = orig_preferred_step
+    centers.append(Center(pos=segs[0][0], forced=True))
+    centers.append(Center(pos=segs[-1][-1], forced=True))
+    # Work out where the last-but-one dot should be
+    iterations = 0
+    while iterations < params["dotSpacing"]:
+        num_dots = int(plen / preferred_step)
+        this_t = preferred_step * num_dots / plen
+        (x, y) = piecewiseLinearMap(this_t, x_lut), piecewiseLinearMap(this_t, y_lut)
+        last_but_one = Center(pos=(x, y), forced=False)
+        # If the last but one dot is within, let's say, 10% of a dotsize, we're
+        # OK because it will be removed by the overlap prevention code. But
+        # if we're between 10% dotsize and 125% of spacing, we need to re-evaluate
+        lbo_distance = last_but_one.distance(centers[-1])
+        if lbo_distance < 0.1 * dotsize or lbo_distance > max_flex:
+            break
+        # Walk up and down the path to find a better step size
+        preferred_step = orig_preferred_step + (-1) ** iterations * iterations
+        # print(
+        #     "ITeration ",
+        #     iterations,
+        #     "Retrying with distance ",
+        #     lbo_distance,
+        #     " and preferred step ",
+        #     preferred_step,
+        # )
         iterations += 1
-        if iterations > 100:
-            print("Could not find a good solution, approximating")
-            centers.extend(newcenters)
-            return
-    print(centers)
+    start = preferred_step  # Ignore first point
+    while start < plen:
+        this_t = start / plen
+        (x, y) = piecewiseLinearMap(this_t, x_lut), piecewiseLinearMap(this_t, y_lut)
+        centers.append(Center(pos=(x, y), forced=False))
+        start += preferred_step
 
 
 def centersToPaths(centers: list[Center], params, component=False):
@@ -293,6 +329,12 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
     newnodes[insertion_point_index : insertion_point_index + middle + 1] = (
         nodes_to_insert
     )
+    # Copy any forcing
+    forced_positions = [x.position for x in path.nodes if isForced(x)]
+    for node in newnodes:
+        for pt in forced_positions:
+            if distance(node.position, pt) < 0.5:
+                set_locally_forced(node)
     path.nodes = newnodes
     # print("New path nodes", path.nodes)
 
@@ -310,12 +352,12 @@ def splitPathsAtIntersections(paths):
     # We don't necessarily need to split the paths; we can
     # get away with adding a new node and setting it to forced.
     for p1 in paths:
-        for s1 in p1.segments:
-            for p2 in paths:
-                if p1 == p2:
-                    continue
-                if not boundsIntersect(p1.bounds, p2.bounds):
-                    continue
+        for p2 in paths:
+            if p1 == p2:
+                continue
+            if not boundsIntersect(p1.bounds, p2.bounds):
+                continue
+            for s1 in p1.segments:
                 for s2 in p2.segments:
                     # Yes this is O(n^2). Yes I could improve it.
                     # Let's see if it's actually a problem first.
