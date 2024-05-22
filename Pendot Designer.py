@@ -30,8 +30,8 @@ GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 
 
 # Parameters for pendot are stored per instance.
-# Each instance has a default userdata entry for each parameter; for example,
-# instance.userData["co.uk.corvelsoftware.Dotter.dotSize"] stores the
+# Each instance has a default custom parameter entry for each parameter; for example,
+# instance.customParameters["co.uk.corvelsoftware.Dotter.dotSize"] stores the
 # dot size for this instance. However, each layer may provide an instance-specific
 # override, allowing you to have, for example, different dot sizes for the letter
 # B. This is stored in the layer.userData dictionary, but the key includes the
@@ -59,7 +59,7 @@ GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 #     "segmentWise": False
 
 # Guidelines parameters are stored in the instance as
-# instance.userData["co.uk.corvelsoftware.Dotter.guidelines"]. This is a list
+# instance.customParameters["co.uk.corvelsoftware.Dotter.guidelines"]. This is a list
 # of tuples, each of which is a pair of (height, thickness). The height is
 # either a number of font units, or one of the names of the Glyphs metrics.
 
@@ -187,9 +187,9 @@ class OverridableComponent(vanilla.Group):
         if typecast == int:
             typecast = safe_int
         if isinstance(self.defaultwidget, vanilla.PopUpButton):
-            instance.userData[thisKey] = typecast(sender.getItem())
+            instance.customParameters[thisKey] = typecast(sender.getItem())
         else:
-            instance.userData[thisKey] = typecast(sender.get())
+            instance.customParameters[thisKey] = typecast(sender.get())
         if self.postChange:
             self.postChange(self)
 
@@ -213,17 +213,26 @@ class OverridableComponent(vanilla.Group):
         thisKey = KEY + "." + self.target
         if not instance:
             return
-        if not instance.userData or thisKey not in instance.userData:
-            instance.userData[thisKey] = PARAMS[self.target]
-        if instance.userData[thisKey]:
+        # Migrate any old userData parameters to custom parameters
+        to_delete = []
+        for ix, key in enumerate(instance.userData.keys()):
+            if key.startswith(KEY + "."):
+                instance.customParameters[key] = instance.userData[key]
+                to_delete.append(ix)
+        for key in reversed(to_delete):
+            del instance.userData[key]
+
+        if not instance.customParameters or thisKey not in instance.customParameters:
+            instance.customParameters[thisKey] = PARAMS[self.target]
+        if instance.customParameters[thisKey]:
             if isinstance(self.defaultwidget, vanilla.PopUpButton):
-                self.defaultwidget.setItem(instance.userData[thisKey])
+                self.defaultwidget.setItem(instance.customParameters[thisKey])
             else:
                 try:
-                    self.defaultwidget.set(instance.userData[thisKey])
+                    self.defaultwidget.set(instance.customParameters[thisKey])
                 except Exception as e:
                     print(
-                        f"Error setting default value {instance.userData[thisKey]} for {thisKey}: {e}"
+                        f"Error setting default value {instance.customParameters[thisKey]} for {thisKey}: {e}"
                     )
         # Check if there is an override for this selected layer
         layer_instance_override = KEY + "." + instance.name + "." + self.target
@@ -381,13 +390,13 @@ class PendotDesigner:
             return
         selectedIndex = selectedIndexes[0]
         instance = self.selectedInstance or Glyphs.font.instances[0]
-        items = instance.userData[KEY + ".guidelines"]
+        items = instance.customParameters[KEY + ".guidelines"]
         del items[selectedIndex]
         self.reloadGuidelines()
 
     def addGuideline(self, sender=None):
         instance = self.selectedInstance or Glyphs.font.instances[0]
-        items = instance.userData[KEY + ".guidelines"]
+        items = instance.customParameters[KEY + ".guidelines"]
         items.append({"height": "0", "thickness": 10})
         self.reloadGuidelines()
 
@@ -432,7 +441,7 @@ class PendotDesigner:
 
     def editGuidelines(self, sender):
         instance = self.selectedInstance or Glyphs.font.instances[0]
-        instance.userData[KEY + ".guidelines"] = [
+        instance.customParameters[KEY + ".guidelines"] = [
             {"height": item["height"], "thickness": item["thickness"]}
             for item in self.w.tabs[2].list.get()
         ]
@@ -440,10 +449,10 @@ class PendotDesigner:
 
     def reloadValues(self, sender=None):
         instance = self.selectedInstance or Glyphs.font.instances[0]
-        if KEY + ".mode" in instance.userData:
-            if instance.userData[KEY + ".mode"] == "dotter":
+        if KEY + ".mode" in instance.customParameters:
+            if instance.customParameters[KEY + ".mode"] == "dotter":
                 self.w.tabs.set(0)
-            elif instance.userData[KEY + ".mode"] == "stroker":
+            elif instance.customParameters[KEY + ".mode"] == "stroker":
                 self.w.tabs.set(1)
         for reloader in self.widget_reloaders:
             reloader()
@@ -452,17 +461,17 @@ class PendotDesigner:
     def reloadGuidelines(self):
         instance = self.selectedInstance or Glyphs.font.instances[0]
         if (
-            not instance.userData
-            or KEY + ".guidelines" not in instance.userData
-            or not instance.userData[KEY + ".guidelines"]
+            not instance.customParameters
+            or KEY + ".guidelines" not in instance.customParameters
+            or not instance.customParameters[KEY + ".guidelines"]
         ):
-            instance.userData[KEY + ".guidelines"] = [
+            instance.customParameters[KEY + ".guidelines"] = [
                 {"height": "Descender", "thickness": 10},
                 {"height": "x-Height", "thickness": 10},
                 {"height": "Cap Height", "thickness": 10},
                 {"height": "Ascender", "thickness": 10},
             ]
-        items = instance.userData[KEY + ".guidelines"]
+        items = instance.customParameters[KEY + ".guidelines"]
         # Make a deep mutable copy of this
         self.w.tabs[2].list.set(
             [
@@ -487,7 +496,7 @@ class PendotDesigner:
         instance = self.selectedInstance
         if not instance:
             return
-        instance.userData[KEY + ".mode"] = self.mode
+        instance.customParameters[KEY + ".mode"] = self.mode
         if not Glyphs.font:
             return
 
