@@ -213,14 +213,6 @@ class OverridableComponent(vanilla.Group):
         thisKey = KEY + "." + self.target
         if not instance:
             return
-        # Migrate any old userData parameters to custom parameters
-        to_delete = []
-        for ix, key in enumerate(instance.userData.keys()):
-            if key.startswith(KEY + "."):
-                instance.customParameters[key] = instance.userData[key]
-                to_delete.append(ix)
-        for key in reversed(to_delete):
-            del instance.userData[key]
 
         if not instance.customParameters or thisKey not in instance.customParameters:
             instance.customParameters[thisKey] = PARAMS[self.target]
@@ -270,6 +262,8 @@ class PendotDesigner:
             callback=self.createLayerPreview,
         )
         dotterTab, strokerTab, guidelineTab = self.w.tabs
+
+        self.migrate()
 
         # Set up dotter tab
         def setuptab(tab, controls):
@@ -599,6 +593,17 @@ class PendotDesigner:
                 add_guidelines_to_layer(preview_layer, instance)
             glyph.undoManager().enableUndoRegistration()
         Glyphs.redraw()
+
+    def migrate(self):
+        # Migrate any old userData parameters to custom parameters
+        for instance in Glyphs.font.instances:
+            to_delete = []
+            for ix, key in enumerate(instance.userData.keys()):
+                if key.startswith(KEY + "."):
+                    instance.customParameters[key] = instance.userData[key]
+                    to_delete.append(ix)
+            for key in reversed(to_delete):
+                del instance.userData[key]
 
 
 if Glyphs.font:
