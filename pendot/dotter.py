@@ -204,13 +204,15 @@ def interpolate_lut(t, lut):
     )
 
 
-def findCenters(path: GSPath, params: dict, centers: list[Center]):
+def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
     segs = [seg_to_tuples(seg) for seg in path.segments]
     if not segs or not segs[0]:
         return
 
     LIMIT = 100
     plen = pathLength(path)
+    if plen == 0:
+        return
     lengthSoFar = 0
     x_lut = {
         0: segs[0][0][0],
@@ -395,7 +397,7 @@ def doDotter(layer, instance, cmd_line_params=None, component=True):
         splitPathsAtIntersections(paths)
     for path in paths:
         for subpath in splitAtForcedNode(path):
-            findCenters(subpath, params, centers)
+            findCenters(subpath, params, centers, layer.parent.name)
     new_paths = centersToPaths(centers, params, component=component)
 
     for path in sourcelayer.paths:
