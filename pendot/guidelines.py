@@ -33,10 +33,14 @@ class Guidelines(Effect):
         "guidelineOverlap": 0,
     }
 
+    @property
+    def display_params(self):
+        return []
+
     def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
         if not layer.master:
             return
-        gloverlap = self.parameter("overlap", layer)
+        gloverlap = self.parameter("guidelineOverlap", layer)
         guidelines = self.parameter("guidelines", layer)
 
         fontmetrics = layer.parent.parent.metrics

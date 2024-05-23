@@ -275,7 +275,7 @@ class PendotDesigner:
         self.effects = [
             Dotter(font, instance),
             Stroker(font, instance),
-            # Guidelines(font, instance),
+            Guidelines(font, instance),
         ]
 
         self.w.tabs = vanilla.Tabs(
@@ -293,50 +293,53 @@ class PendotDesigner:
                 "Enabled ",
                 callback=self.toggle_effect_enabled,
             )
-            tab.glyphoverridelabel = vanilla.TextBox((350, 30, 250, 24), "")
-            basepos = (10, 60, -10, 30)
-            for name in effect.params.keys():
-                component = OverridableComponent(
-                    self,
-                    effect,
-                    name,
-                    basepos,
-                    postChange=self.create_layer_preview,
+            if effect.__class__.__name__ != "Guidelines":
+                tab.glyphoverridelabel = vanilla.TextBox((350, 30, 250, 24), "")
+                basepos = (10, 60, -10, 30)
+                for name in effect.params.keys():
+                    component = OverridableComponent(
+                        self,
+                        effect,
+                        name,
+                        basepos,
+                        postChange=self.create_layer_preview,
+                    )
+                    setattr(tab, name, component)
+                    self.widget_reloaders.append(component.loadValues)
+                    basepos = (10, basepos[1] + 30, -10, 30)
+            else:
+                # The guidelines tab is just, as it were, built different
+                columnDescriptions = [
+                    {
+                        "identifier": "height",
+                        "title": "Height",
+                        "editable": True,
+                        "cellClass": vanilla.ComboBoxList2Cell,
+                        "cellClassArguments": {
+                            "items": [m.name for m in Glyphs.font.masters[0].metrics()]
+                        },
+                    },
+                    {
+                        "identifier": "thickness",
+                        "title": "Thickness",
+                        # "cellClass": SteppingTextBoxList2Cell,
+                        "editable": True,
+                    },
+                ]
+
+                self.guidelines_tab.list = vanilla.List2(
+                    "auto",
+                    items=[],
+                    columnDescriptions=columnDescriptions,
+                    editCallback=self.edit_guidelines,
+                    deleteCallback=self.remove_guideline,
                 )
-                setattr(tab, name, component)
-                self.widget_reloaders.append(component.loadValues)
-                basepos = (10, basepos[1] + 30, -10, 30)
-
-        # Set up Guidelines tab
-        # columnDescriptions = [
-        #     {
-        #         "identifier": "height",
-        #         "title": "Height",
-        #         "editable": True,
-        #         "cellClass": vanilla.ComboBoxList2Cell,
-        #         "cellClassArguments": {
-        #             "items": [m.name for m in Glyphs.font.masters[0].metrics()]
-        #         },
-        #     },
-        #     {
-        #         "identifier": "thickness",
-        #         "title": "Thickness",
-        #         # "cellClass": SteppingTextBoxList2Cell,
-        #         "editable": True,
-        #     },
-        # ]
-
-        # guidelineTab.list = vanilla.List2(
-        #     "auto",
-        #     items=[],
-        #     columnDescriptions=columnDescriptions,
-        #     editCallback=self.edit_guidelines,
-        #     deleteCallback=self.remove_guideline,
-        # )
-        # guidelineTab.addButton = vanilla.Button("auto", "+", callback=self.add_guideline)
-        # guidelineTab.addAutoPosSizeRules(
-        #     ["H:|-[list]-|", "H:[addButton]-|", "V:|-[list]-[addButton]-|"]
-        # )
+                self.guidelines_tab.addButton = vanilla.Button(
+                    "auto", "+", callback=self.add_guideline
+                )
+                self.guidelines_tab.addAutoPosSizeRules(
+                    ["H:|-[list]-|", "H:[addButton]-|", "V:|-[list]-[addButton]-|"]
+                )
 
         self.on_layer_change()
         self.w.createPreviewButton = vanilla.Button(
@@ -426,8 +429,18 @@ class PendotDesigner:
         return preview_master
 
     ## Guideline-related methods
+    @property
+    def guidelines_tab(self):
+        guidelines = [
+            ix
+            for ix, effect in enumerate(self.effects)
+            if effect.__class__.__name__ == "Guidelines"
+        ]
+        if guidelines:
+            return self.w.tabs[guidelines[0]]
+
     def remove_guideline(self, sender=None):
-        selectedIndexes = self.w.tabs[2].list.getSelectedIndexes()
+        selectedIndexes = self.guidelines_tab.list.getSelectedIndexes()
         if not len(selectedIndexes):
             return
         selectedIndex = selectedIndexes[0]
@@ -446,7 +459,7 @@ class PendotDesigner:
         instance = self.selectedInstance or Glyphs.font.instances[0]
         instance.customParameters[KEY + ".guidelines"] = [
             {"height": item["height"], "thickness": item["thickness"]}
-            for item in self.w.tabs[2].list.get()
+            for item in self.guidelines_tab.list.get()
         ]
         self.create_layer_preview()
 
@@ -454,12 +467,12 @@ class PendotDesigner:
         instance = self.selectedInstance or Glyphs.font.instances[0]
         items = instance.customParameters[KEY + ".guidelines"]
         # Make a deep mutable copy of this
-        # self.w.tabs[2].list.set(
-        #     [
-        #         {"height": item["height"], "thickness": item["thickness"]}
-        #         for item in items
-        #     ]
-        # )
+        self.guidelines_tab.list.set(
+            [
+                {"height": item["height"], "thickness": item["thickness"]}
+                for item in items
+            ]
+        )
         self.create_layer_preview()
 
     ## Other methods
@@ -570,10 +583,11 @@ class PendotDesigner:
         # Migrate any old userData parameters to custom parameters
         for instance in Glyphs.font.instances:
             to_delete = []
-            for ix, key in enumerate(instance.userData.keys()):
-                if key.startswith(KEY + "."):
-                    instance.customParameters[key] = instance.userData[key]
-                    to_delete.append(ix)
+            if instance.userData:
+                for ix, key in enumerate(instance.userData.keys()):
+                    if key.startswith(KEY + "."):
+                        instance.customParameters[key] = instance.userData[key]
+                        to_delete.append(ix)
             for key in reversed(to_delete):
                 del instance.userData[key]
 
