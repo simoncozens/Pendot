@@ -1,27 +1,11 @@
 from dataclasses import dataclass
-from typing import Optional
-from .constants import getParams
+from typing import List, Optional
 
-try:
-    from GlyphsApp import GSNode, GSPath, OFFCURVE, LINE, CURVE
-except:
-    from glyphsLib.classes import GSNode, GSPath, OFFCURVE, LINE, CURVE
-
-from .utils import decomposedPaths
 from ufostroker.ufostroker import constant_width_stroke as cws_rust
 
-STROKER_PARAMS = {
-    "strokerWidth": 50,
-    "strokerHeight": 50,
-    "strokerAngle": 0,
-    "strokerHeightLock": True,
-    "startCap": "round",
-    "endCap": "round",
-    "joinType": "round",
-    "removeExternal": False,
-    "removeInternal": False,
-    "segmentWise": False,
-}
+from .effect import Effect
+from .glyphsbridge import CURVE, LINE, OFFCURVE, GSNode, GSPath, GSLayer, GSShape
+from .utils import decomposedPaths
 
 type_map = {"": OFFCURVE, "curve": CURVE, "line": LINE}
 
@@ -42,44 +26,60 @@ class Point:
         return cls(pt.position.x, pt.position.y, typ)
 
 
-def doStroker(layer, instance, cmd_line_params=None):
-    params = getParams(layer, instance, STROKER_PARAMS, cmd_line_params=cmd_line_params)
-    if not layer.paths:
-        return
-    list_of_list_of_nodes = []
+class Stroker(Effect):
+    params = {
+        "strokerWidth": 50,
+        "strokerHeight": 50,
+        "strokerAngle": 0,
+        "startCap": "round",
+        "endCap": "round",
+        "joinType": "round",
+        "removeExternal": False,
+        "removeInternal": False,
+        "segmentWise": False,
+    }
 
-    for path in decomposedPaths(layer):
-        list_of_list_of_nodes.append(
-            [Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)]
+    @property
+    def display_params(self):
+        return ["strokerWidth"]
+
+    def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
+        if not shapes:
+            return []
+        list_of_list_of_nodes = []
+
+        for path in shapes:
+            list_of_list_of_nodes.append(
+                [Point.fromGSPoint(p, ix) for ix, p in enumerate(path.nodes)]
+            )
+
+        startcap = self.parameter("startCap", layer).lower()
+        endcap = self.parameter("endCap", layer).lower()
+        jointype = self.parameter("joinType", layer).lower()
+        if startcap not in ["round", "square", "circle"]:
+            raise ValueError("Unknown start cap type")
+        if endcap not in ["round", "square", "circle"]:
+            raise ValueError("Unknown end cap type")
+        if jointype not in ["round", "bevel", "mitre", "circle"]:
+            raise ValueError("Unknown join type")
+
+        result = cws_rust(
+            list_of_list_of_nodes,
+            width=float(self.parameter("strokerWidth", layer)) / 2,
+            height=float(self.parameter("strokerHeight", layer)) / 2,
+            angle=float(self.parameter("strokerAngle", layer) or 0),
+            startcap=startcap,
+            endcap=endcap,
+            jointype=jointype,
+            remove_internal=bool(self.parameter("removeInternal", layer)),
+            remove_external=bool(self.parameter("removeExternal", layer)),
+            segmentwise=bool(self.parameter("segmentWise", layer)),
         )
-
-    startcap = params["startCap"].lower()
-    endcap = params["endCap"].lower()
-    jointype = params["joinType"].lower()
-    if startcap not in ["round", "square", "circle"]:
-        raise ValueError("Unknown start cap type")
-    if endcap not in ["round", "square", "circle"]:
-        raise ValueError("Unknown end cap type")
-    if jointype not in ["round", "bevel", "mitre", "circle"]:
-        raise ValueError("Unknown join type")
-
-    result = cws_rust(
-        list_of_list_of_nodes,
-        width=float(params["strokerWidth"]) / 2,
-        height=float(params["strokerHeight"]) / 2,
-        angle=float(params["strokerAngle"] or 0),
-        startcap=startcap,
-        endcap=endcap,
-        jointype=jointype,
-        remove_internal=bool(params["removeInternal"]),
-        remove_external=bool(params["removeExternal"]),
-        segmentwise=bool(params["segmentWise"]),
-    )
-    newpaths = []
-    for res_path in result:
-        path = GSPath()
-        path.closed = True
-        for x, y, typ in res_path:
-            path.nodes.append(GSNode((x, y), type_map[typ]))
-        newpaths.append(path)
-    return newpaths
+        newpaths = []
+        for res_path in result:
+            path = GSPath()
+            path.closed = True
+            for x, y, typ in res_path:
+                path.nodes.append(GSNode((x, y), type_map[typ]))
+            newpaths.append(path)
+        return newpaths

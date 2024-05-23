@@ -1,56 +1,37 @@
-import math
-from typing import NamedTuple
-from .constants import KEY, getParams
-from .utils import (
-    TuplePoint,
-    distance,
-    Segment,
-    seg_to_tuples,
-    pathLength,
-    arclength,
-    TupleSegment,
-    decomposedPaths,
+from typing import List, NamedTuple
+
+from .constants import KEY
+from .effect import Effect
+from .glyphsbridge import (
+    CURVE,
+    LINE,
+    OFFCURVE,
+    GSComponent,
+    GSFont,
+    GSGlyph,
+    GSInstance,
+    GSLayer,
+    GSNode,
+    GSPath,
+    GSShape,
+    Message,
 )
-
-try:
-    from GlyphsApp import (
-        GSFont,
-        GSInstance,
-        GSPath,
-        GSComponent,
-        GSGlyph,
-        GSNode,
-        GSLayer,
-        OFFCURVE,
-        CURVE,
-        LINE,
-        Message,
-    )
-except:
-    from glyphsLib.classes import (
-        GSFont,
-        GSInstance,
-        GSPath,
-        GSLayer,
-        GSComponent,
-        GSGlyph,
-        GSNode,
-        OFFCURVE,
-        CURVE,
-        LINE,
-    )
-    import sys
-
-    def Message(message):
-        print(message)
-        sys.exit(1)
-
+from .utils import (
+    Segment,
+    TuplePoint,
+    TupleSegment,
+    arclength,
+    decomposedPaths,
+    distance,
+    pathLength,
+    seg_to_tuples,
+)
 
 try:
     from fontTools.misc.bezierTools import (
         Intersection,
-        segmentSegmentIntersections,
         linePointAtT,
+        segmentSegmentIntersections,
         splitCubicAtT,
     )
     from fontTools.varLib.models import piecewiseLinearMap
@@ -64,15 +45,6 @@ class Center(NamedTuple):
 
     def distance(self, other):
         return distance(self.pos, other.pos)
-
-
-DOTTER_PARAMS = {
-    "dotSize": 15,
-    "dotSpacing": 15,
-    "preventOverlaps": True,
-    "splitPaths": False,
-    "contourSource": "<Default>",
-}
 
 
 def set_locally_forced(node: GSNode) -> None:
@@ -156,28 +128,6 @@ def makeCircle(center: TuplePoint, radius: float):
         if (ix + 1) % 3:
             node.smooth = True
     return path
-
-
-def addComponentGlyph(font: GSFont, instance: GSInstance):
-    if font.glyphs["_dot"]:
-        glyph = font.glyphs["_dot"]
-    else:
-        glyph = GSGlyph("_dot")
-        font.glyphs.append(glyph)
-    size = instance.userData[KEY + ".dotSize"]
-    for master in font.masters:
-        if glyph.layers[master.id]:
-            layer = glyph.layers[master.id]
-            layer.shapes = []
-        else:
-            layer = GSLayer()
-            if hasattr(glyph, "_setupLayer"):
-                glyph._setupLayer(layer, master.id)
-            else:
-                layer.layerId = master.id
-                layer.associatedMasterId = master.id
-            glyph.layers.append(layer)
-        layer.paths.append(makeCircle((0, 0), size / 2))
 
 
 def splitAtForcedNode(path: GSPath):
@@ -272,29 +222,6 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
         start += preferred_step
 
 
-def centersToPaths(centers: list[Center], params, component=False):
-    if params["preventOverlaps"]:
-        newcenters = []
-        # Sort, to put forced points first
-        for c in sorted(centers, key=lambda pt: pt.forced, reverse=True):
-            # This could probably be improved...
-            ok = True
-            for nc in newcenters:
-                if distance(c.pos, nc) < params["dotSize"]:
-                    ok = False
-                    break
-            if ok:
-                newcenters.append(c.pos)
-    else:
-        newcenters = [c.pos for c in centers]
-
-    if component:
-        # Fixme - alter the size of the component if overridden
-        return [GSComponent("_dot", c) for c in newcenters]
-    else:
-        return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
-
-
 def insertPointInPathUnlessThere(path, pt: TuplePoint):
     node: GSNode
     for node in path.nodes:
@@ -380,27 +307,83 @@ def splitPathsAtIntersections(paths):
                         insertPointInPathUnlessThere(p2, i.pt)
 
 
-def doDotter(layer, instance, cmd_line_params=None, component=True):
-    if layer.parent.name == "_dot":
-        return
-    params = getParams(layer, instance, DOTTER_PARAMS, cmd_line_params=cmd_line_params)
-    if (
-        params["contourSource"] != "<Default>"
-        and layer.parent.layers[params["contourSource"]]
-    ):
-        sourcelayer = layer.parent.layers[params["contourSource"]]
-    else:
-        sourcelayer = layer
-    centers = []
-    paths = decomposedPaths(sourcelayer)
-    if params["splitPaths"]:
-        splitPathsAtIntersections(paths)
-    for path in paths:
-        for subpath in splitAtForcedNode(path):
-            findCenters(subpath, params, centers, layer.parent.name)
-    new_paths = centersToPaths(centers, params, component=component)
+class Dotter(Effect):
+    params = {
+        "dotSize": 15,
+        "dotSpacing": 15,
+        "preventOverlaps": True,
+        "splitPaths": False,
+        "contourSource": "<Default>",
+    }
 
-    for path in sourcelayer.paths:
-        for node in path.nodes:
-            clear_locally_forced(node)
-    return new_paths
+    @property
+    def display_params(self):
+        return ["dotSize", "dotSpacing"]
+
+    def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
+        if layer.parent.name == "_dot":
+            return layer.shapes
+        params = {p: self.parameter(p, layer) for p in self.params.keys()}
+        if (
+            params["contourSource"] != "<Default>"
+            and layer.parent.layers[params["contourSource"]]
+        ):
+            sourcelayer = layer.parent.layers[params["contourSource"]]
+        else:
+            sourcelayer = layer
+        centers = []
+        paths = decomposedPaths(sourcelayer)
+        if params["splitPaths"]:
+            splitPathsAtIntersections(paths)
+        for path in paths:
+            for subpath in splitAtForcedNode(path):
+                findCenters(subpath, params, centers, layer.parent.name)
+        new_paths = self.centers_to_paths(centers, params)
+
+        for path in sourcelayer.paths:
+            for node in path.nodes:
+                clear_locally_forced(node)
+        return new_paths
+
+    def postprocess_font(self):
+        # Add the component glyph
+        if self.font.glyphs["_dot"]:
+            glyph = self.font.glyphs["_dot"]
+        else:
+            glyph = GSGlyph("_dot")
+            self.font.glyphs.append(glyph)
+        size = self.instance.customParameters[KEY + ".dotSize"]
+        for master in self.font.masters:
+            if glyph.layers[master.id]:
+                layer = glyph.layers[master.id]
+                layer.shapes = []
+            else:
+                layer = GSLayer()
+                if hasattr(glyph, "_setupLayer"):
+                    glyph._setupLayer(layer, master.id)
+                else:
+                    layer.layerId = master.id
+                    layer.associatedMasterId = master.id
+                glyph.layers.append(layer)
+            layer.paths.append(makeCircle((0, 0), size / 2))
+
+    def centers_to_paths(self, centers: list[Center], params: dict):
+        if params["preventOverlaps"]:
+            newcenters = []
+            # Sort, to put forced points first
+            for c in sorted(centers, key=lambda pt: pt.forced, reverse=True):
+                # This could probably be improved...
+                ok = True
+                for nc in newcenters:
+                    if distance(c.pos, nc) < params["dotSize"]:
+                        ok = False
+                        break
+                if ok:
+                    newcenters.append(c.pos)
+        else:
+            newcenters = [c.pos for c in centers]
+
+        # If we are in Glyphsapp, then we want to draw a dot
+        if self.preview:
+            return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
+        return [GSComponent("_dot", c) for c in newcenters]

@@ -3,28 +3,23 @@ __doc__ = """
 Pendot Designer
 """
 
-import vanilla
-from pathlib import Path
-from GlyphsApp import Glyphs, GSLayer, GSFontMaster, GSApplication
+import functools
 import sys
+import traceback
+from pathlib import Path
+import re
+
 import AppKit
+import vanilla
+from GlyphsApp import Glyphs, GSApplication, GSFontMaster, GSLayer
 
 sys.path.append(str(Path(__file__).parent.parent / "Plugins" / "Dotter"))
 
-from pendot import (
-    PARAMS,
-    doStroker,
-    KEY,
-    doDotter,
-    addComponentGlyph,
-    add_guidelines_to_layer,
-)
-from pendot.constants import (
-    PREVIEW_MASTER_NAME,
-    QUICK_PREVIEW_LAYER_NAME,
-)
-import traceback
-
+from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
+from pendot.dotter import Dotter
+from pendot.guidelines import Guidelines
+from pendot.stroker import Stroker
+from pendot import create_effects, transform_layer
 
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
 
@@ -138,12 +133,28 @@ class LabelledComponent(vanilla.Group):
 
 
 class OverridableComponent(vanilla.Group):
-    def __init__(
-        self, owner, target, possize, label, widgetclass, widgetargs, postChange=None
-    ):
-        super().__init__(possize)
+    def __init__(self, owner, effect, name, basepos, postChange=None):
+        super().__init__(basepos)
+        label = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name).title()
+        default_param = effect.params[name]
+        self.typecast = type(default_param)
+        if self.typecast == int:
+            self.typecast = safe_int
+        print(label, default_param)
+
+        if isinstance(default_param, bool):
+            widgetclass = vanilla.CheckBox
+            widgetargs = {"title": ""}
+        elif isinstance(default_param, (int, float)):
+            widgetclass = SteppingTextBox
+            widgetargs = {}
+        elif isinstance(default_param, str):
+            widgetclass = vanilla.PopUpButton
+            widgetargs = {"items": self.get_popup_items(name)}
+
         self.owner = owner
-        self.target = target
+        self.target = name
+        self.effect = effect
         self.postChange = postChange
         self.label = vanilla.TextBox((0, 0, 200, 24), label)
         self.defaultwidget = widgetclass(
@@ -163,13 +174,12 @@ class OverridableComponent(vanilla.Group):
             KEY + "." + self.owner.selectedInstanceName + "." + self.target
         )
         layer = Glyphs.font.selectedLayers[0]
-        typecast = type(PARAMS[self.target])
         if sender.get():
             # There is now an override
             self.overridewidget.enable(True)
             if not self.overridewidget.get():
-                self.overridewidget.set(typecast(self.defaultwidget.get()))
-            layer.userData[layer_instance_override] = typecast(
+                self.overridewidget.set(self.typecast(self.defaultwidget.get()))
+            layer.userData[layer_instance_override] = self.typecast(
                 self.overridewidget.get()
             )
         else:
@@ -183,13 +193,10 @@ class OverridableComponent(vanilla.Group):
     def updateDefault(self, sender):
         instance = self.owner.selectedInstance
         thisKey = KEY + "." + self.target
-        typecast = type(PARAMS[self.target])
-        if typecast == int:
-            typecast = safe_int
         if isinstance(self.defaultwidget, vanilla.PopUpButton):
-            instance.customParameters[thisKey] = typecast(sender.getItem())
+            instance.customParameters[thisKey] = self.typecast(sender.getItem())
         else:
-            instance.customParameters[thisKey] = typecast(sender.get())
+            instance.customParameters[thisKey] = self.typecast(sender.get())
         if self.postChange:
             self.postChange(self)
 
@@ -198,13 +205,10 @@ class OverridableComponent(vanilla.Group):
             KEY + "." + self.owner.selectedInstanceName + "." + self.target
         )
         layer = Glyphs.font.selectedLayers[0]
-        typecast = type(PARAMS[self.target])
-        if typecast == int:
-            typecast = safe_int
         if isinstance(self.overridewidget, vanilla.PopUpButton):
-            layer.userData[layer_instance_override] = typecast(sender.getItem())
+            layer.userData[layer_instance_override] = self.typecast(sender.getItem())
         else:
-            layer.userData[layer_instance_override] = typecast(sender.get())
+            layer.userData[layer_instance_override] = self.typecast(sender.get())
         if self.postChange:
             self.postChange(self)
 
@@ -215,7 +219,7 @@ class OverridableComponent(vanilla.Group):
             return
 
         if not instance.customParameters or thisKey not in instance.customParameters:
-            instance.customParameters[thisKey] = PARAMS[self.target]
+            instance.customParameters[thisKey] = self.effect.params[self.target]
         if instance.customParameters[thisKey]:
             if isinstance(self.defaultwidget, vanilla.PopUpButton):
                 self.defaultwidget.setItem(instance.customParameters[thisKey])
@@ -239,6 +243,17 @@ class OverridableComponent(vanilla.Group):
             else:
                 self.overridewidget.set(layers[0].userData[layer_instance_override])
 
+    def get_popup_items(self, name):
+        # Here is where we hard-code the stuff we can't automatically compute
+        if name == "counterSource":
+            return ["<Default>"] + [l.name for l in Glyphs.font.masters]
+        if name in ["startCap", "endCap"]:
+            return ["round", "square", "circle"]
+        if name == "joinType":
+            return ["round", "bevel", "mitre", "circle"]
+        else:
+            return ["oops " + name]
+
 
 # On with the show.
 
@@ -250,161 +265,99 @@ class PendotDesigner:
         self.w = vanilla.Window((600, 600), "Pendot Designer")
         self.w.instanceSelector = LabelledComponent(
             "Instance",
-            # vanilla.PopUpButton("auto", instancenames)
             vanilla.PopUpButton(
-                "auto", [i.name for i in font.instances], callback=self.reloadValues
+                "auto", [i.name for i in font.instances], callback=self.reload_values
             ),
         )
+        self.w.instanceSummary = vanilla.TextBox("auto", "")
         self.widget_reloaders = []
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        self.effects = [
+            Dotter(font, instance),
+            Stroker(font, instance),
+            # Guidelines(font, instance),
+        ]
+
         self.w.tabs = vanilla.Tabs(
             "auto",
-            ["Dotter", "Stroker", "Guidelines"],
-            callback=self.createLayerPreview,
+            [obj.__class__.__name__ for obj in self.effects],
+            callback=self.create_layer_preview,
         )
-        dotterTab, strokerTab, guidelineTab = self.w.tabs
 
         self.migrate()
 
-        # Set up dotter tab
-        def setuptab(tab, controls):
-            tab.glyphoverridelabel = vanilla.TextBox((350, 0, 250, 24), "")
-            basepos = (10, 30, -10, 30)
-            for name, title, widget, args in controls:
+        for effect, tab in zip(self.effects, self.w.tabs):
+
+            tab.enabledtoggle = vanilla.CheckBox(
+                (10, 0, -10, 24),
+                "Enabled ",
+                callback=self.toggle_effect_enabled,
+            )
+            tab.glyphoverridelabel = vanilla.TextBox((350, 30, 250, 24), "")
+            basepos = (10, 60, -10, 30)
+            for name in effect.params.keys():
                 component = OverridableComponent(
                     self,
+                    effect,
                     name,
                     basepos,
-                    title,
-                    widget,
-                    args,
-                    postChange=self.createLayerPreview,
+                    postChange=self.create_layer_preview,
                 )
                 setattr(tab, name, component)
                 self.widget_reloaders.append(component.loadValues)
                 basepos = (10, basepos[1] + 30, -10, 30)
 
-        setuptab(
-            dotterTab,
-            [
-                ("contourSource", "Contour Source", vanilla.PopUpButton, {"items": []}),
-                ("dotSize", "Dot Size", SteppingTextBox, {}),
-                ("dotSpacing", "Dot Spacing", SteppingTextBox, {}),
-                (
-                    "preventOverlaps",
-                    "Prevent Overlaps",
-                    vanilla.CheckBox,
-                    {"title": ""},
-                ),
-                ("splitPaths", "Split paths at nodes", vanilla.CheckBox, {"title": ""}),
-            ],
-        )
-        # Set up Stroker tab
-        setuptab(
-            strokerTab,
-            [
-                ("strokerWidth", "Stroke Width", SteppingTextBox, {}),
-                ("strokerHeight", "Stroke Height", SteppingTextBox, {}),
-                ("strokerAngle", "Stroke Angle", SteppingTextBox, {}),
-                (
-                    "startCap",
-                    "StartCap",
-                    vanilla.PopUpButton,
-                    {"items": ["Round", "Circle", "Square"]},
-                ),
-                (
-                    "endCap",
-                    "EndCap",
-                    vanilla.PopUpButton,
-                    {"items": ["Round", "Circle", "Square"]},
-                ),
-                (
-                    "joinType",
-                    "Join Type",
-                    vanilla.PopUpButton,
-                    {"items": ["Round", "Bevel", "Mitre", "Circle"]},
-                ),
-                ("removeExternal", "Remove External", vanilla.CheckBox, {"title": ""}),
-                ("removeInternal", "Remove Internal", vanilla.CheckBox, {"title": ""}),
-                ("segmentWise", "Stroke Each Segment", vanilla.CheckBox, {"title": ""}),
-            ],
-        )
-
         # Set up Guidelines tab
-        columnDescriptions = [
-            {
-                "identifier": "height",
-                "title": "Height",
-                "editable": True,
-                "cellClass": vanilla.ComboBoxList2Cell,
-                "cellClassArguments": {
-                    "items": [m.name for m in Glyphs.font.masters[0].metrics()]
-                },
-            },
-            {
-                "identifier": "thickness",
-                "title": "Thickness",
-                # "cellClass": SteppingTextBoxList2Cell,
-                "editable": True,
-            },
-        ]
+        # columnDescriptions = [
+        #     {
+        #         "identifier": "height",
+        #         "title": "Height",
+        #         "editable": True,
+        #         "cellClass": vanilla.ComboBoxList2Cell,
+        #         "cellClassArguments": {
+        #             "items": [m.name for m in Glyphs.font.masters[0].metrics()]
+        #         },
+        #     },
+        #     {
+        #         "identifier": "thickness",
+        #         "title": "Thickness",
+        #         # "cellClass": SteppingTextBoxList2Cell,
+        #         "editable": True,
+        #     },
+        # ]
 
-        guidelineTab.list = vanilla.List2(
-            "auto",
-            items=[],
-            columnDescriptions=columnDescriptions,
-            editCallback=self.editGuidelines,
-            deleteCallback=self.removeGuideline,
-        )
-        guidelineTab.addButton = vanilla.Button("auto", "+", callback=self.addGuideline)
-        guidelineTab.addAutoPosSizeRules(
-            ["H:|-[list]-|", "H:[addButton]-|", "V:|-[list]-[addButton]-|"]
-        )
+        # guidelineTab.list = vanilla.List2(
+        #     "auto",
+        #     items=[],
+        #     columnDescriptions=columnDescriptions,
+        #     editCallback=self.edit_guidelines,
+        #     deleteCallback=self.remove_guideline,
+        # )
+        # guidelineTab.addButton = vanilla.Button("auto", "+", callback=self.add_guideline)
+        # guidelineTab.addAutoPosSizeRules(
+        #     ["H:|-[list]-|", "H:[addButton]-|", "V:|-[list]-[addButton]-|"]
+        # )
 
-        self.onLayerChange()
+        self.on_layer_change()
         self.w.createPreviewButton = vanilla.Button(
             "auto", "Create preview master", callback=self.createPreviewMaster
         )
         rules = [
             "H:|-[instanceSelector]-|",
+            "H:|-[instanceSummary]-|",
             "H:|-[tabs]-|",
             "H:|-[createPreviewButton]-|",
-            "V:|-20-[instanceSelector]-20-[tabs]-20-[createPreviewButton]-|",
+            "V:|-20-[instanceSelector]-20-[instanceSummary]-20-[tabs]-20-[createPreviewButton]-|",
         ]
         metrics = {}
         self.w.addAutoPosSizeRules(rules, metrics)
         self.w.bind("close", self.finish)
         self.w.open()
-        Glyphs.addCallback(self.onLayerChange, "GSUpdateInterface")
-        # Glyphs.addCallback(self.createLayerPreview, "GSUpdateInterface")
-        self.createLayerPreview()
+        Glyphs.addCallback(self.on_layer_change, "GSUpdateInterface")
+        # Glyphs.addCallback(self.create_layer_preview, "GSUpdateInterface")
+        self.create_layer_preview()
 
-    def removeGuideline(self, sender=None):
-        selectedIndexes = self.w.tabs[2].list.getSelectedIndexes()
-        if not len(selectedIndexes):
-            return
-        selectedIndex = selectedIndexes[0]
-        instance = self.selectedInstance or Glyphs.font.instances[0]
-        items = instance.customParameters[KEY + ".guidelines"]
-        del items[selectedIndex]
-        self.reloadGuidelines()
-
-    def addGuideline(self, sender=None):
-        instance = self.selectedInstance or Glyphs.font.instances[0]
-        items = instance.customParameters[KEY + ".guidelines"]
-        items.append({"height": "0", "thickness": 10})
-        self.reloadGuidelines()
-
-    def finish(self, sender=None):
-        Glyphs.removeCallback(self.onLayerChange)
-        Glyphs.removeCallback(self.createLayerPreview)
-        # Make quick preview layer invisible
-        for layer in Glyphs.font.selectedLayers:
-            glyph = layer.parent
-            # Find or create a quick preview layer
-            if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
-                glyph.layers[QUICK_PREVIEW_LAYER_NAME].visible = False
-        del self.w
-
+    ## Utility methods
     def _is_valid_source(self, layer):
         if not layer or not layer.name:
             return False
@@ -414,7 +367,122 @@ class PendotDesigner:
             return False
         return True
 
-    def onLayerChange(self, sender=None):
+    def enabled_effects(self, gsinstance):
+        return gsinstance.customParameters[KEY + ".effects"] or []
+
+    @property
+    def selectedInstanceName(self):
+        return str(self.w.instanceSelector.widget.getItem())
+
+    @property
+    def selectedInstance(self):
+        for instance in Glyphs.font.instances:
+            if instance.name == self.selectedInstanceName:
+                return instance
+        return None
+
+    def ensure_quick_preview_layer_exists(self, glyph, layer):
+        # Find or create a quick preview layer
+        if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
+            destination_layer = glyph.layers[QUICK_PREVIEW_LAYER_NAME]
+        else:
+            destination_layer = GSLayer()
+            destination_layer.name = QUICK_PREVIEW_LAYER_NAME
+            destination_layer.width = layer.width
+            destination_layer.parent = layer.parent
+            destination_layer.associatedMasterId = layer.associatedMasterId
+            glyph.layers.append(destination_layer)
+        return destination_layer
+
+    def ensure_full_preview_layer_exists(self, glyph, layer):
+        preview_master = self.ensure_preview_master_exists()
+        preview_layer = None
+        for l in glyph.layers:
+            if l.associatedMasterId == preview_master.id:
+                preview_layer = l
+                break
+        if not preview_layer:
+            preview_layer = GSLayer()
+            preview_layer.name = layer.name
+            preview_layer.associatedMasterId = preview_master.id
+            glyph.layers.append(preview_layer)
+        preview_layer.width = layer.width
+        return preview_layer
+
+    def ensure_preview_master_exists(self):
+        preview_master = None
+        for master in Glyphs.font.masters:
+            if master.name == PREVIEW_MASTER_NAME:
+                preview_master = master
+                break
+        if not preview_master:
+            preview_master = GSFontMaster()
+            Glyphs.font.masters.append(preview_master)
+            preview_master.name = PREVIEW_MASTER_NAME
+            preview_master.ascender = master.ascender
+            preview_master.capHeight = master.capHeight
+            preview_master.descender = master.descender
+            preview_master.xHeight = master.xHeight
+        return preview_master
+
+    ## Guideline-related methods
+    def remove_guideline(self, sender=None):
+        selectedIndexes = self.w.tabs[2].list.getSelectedIndexes()
+        if not len(selectedIndexes):
+            return
+        selectedIndex = selectedIndexes[0]
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        items = instance.customParameters[KEY + ".guidelines"]
+        del items[selectedIndex]
+        self.reload_guidelines()
+
+    def add_guideline(self, sender=None):
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        items = instance.customParameters[KEY + ".guidelines"]
+        items.append({"height": "0", "thickness": 10})
+        self.reload_guidelines()
+
+    def edit_guidelines(self, sender):
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        instance.customParameters[KEY + ".guidelines"] = [
+            {"height": item["height"], "thickness": item["thickness"]}
+            for item in self.w.tabs[2].list.get()
+        ]
+        self.create_layer_preview()
+
+    def reload_guidelines(self):
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        items = instance.customParameters[KEY + ".guidelines"]
+        # Make a deep mutable copy of this
+        # self.w.tabs[2].list.set(
+        #     [
+        #         {"height": item["height"], "thickness": item["thickness"]}
+        #         for item in items
+        #     ]
+        # )
+        self.create_layer_preview()
+
+    ## Other methods
+    def toggle_effect_enabled(self, sender=None):
+        instance = self.selectedInstance or Glyphs.font.instances[0]
+        instance.customParameters[KEY + ".effects"] = [
+            e.__class__.__name__
+            for e, tab in zip(self.effects, self.w.tabs)
+            if tab.enabledtoggle.get()
+        ]
+        self.create_layer_preview()
+
+    def finish(self, sender=None):
+        Glyphs.removeCallback(self.on_layer_change)
+        Glyphs.removeCallback(self.create_layer_preview)
+        # Make quick preview layer invisible
+        for layer in Glyphs.font.selectedLayers:
+            glyph = layer.parent
+            if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
+                glyph.layers[QUICK_PREVIEW_LAYER_NAME].visible = False
+        del self.w
+
+    def on_layer_change(self, sender=None):
         font = Glyphs.font
         layers = font.selectedLayers
         if not layers:
@@ -430,67 +498,24 @@ class PendotDesigner:
                 tab.glyphoverridelabel.set(
                     "Override glyph /" + layers[0].parent.name + "?"
                 )
-        self.reloadValues()
-        self.createLayerPreview()
+        self.reload_values()
+        self.create_layer_preview()
 
-    def editGuidelines(self, sender):
+    def reload_values(self, sender=None):
         instance = self.selectedInstance or Glyphs.font.instances[0]
-        instance.customParameters[KEY + ".guidelines"] = [
-            {"height": item["height"], "thickness": item["thickness"]}
-            for item in self.w.tabs[2].list.get()
-        ]
-        self.createLayerPreview()
-
-    def reloadValues(self, sender=None):
-        instance = self.selectedInstance or Glyphs.font.instances[0]
-        if KEY + ".mode" in instance.customParameters:
-            if instance.customParameters[KEY + ".mode"] == "dotter":
-                self.w.tabs.set(0)
-            elif instance.customParameters[KEY + ".mode"] == "stroker":
-                self.w.tabs.set(1)
         for reloader in self.widget_reloaders:
             reloader()
-        self.reloadGuidelines()
+        # Reload the "enabled" checkboxes
+        for effect, tab in zip(self.effects, self.w.tabs):
+            tab.enabledtoggle.set(
+                effect.__class__.__name__ in self.enabled_effects(instance)
+            )
+        self.reload_guidelines()
 
-    def reloadGuidelines(self):
-        instance = self.selectedInstance or Glyphs.font.instances[0]
-        if (
-            not instance.customParameters
-            or KEY + ".guidelines" not in instance.customParameters
-            or not instance.customParameters[KEY + ".guidelines"]
-        ):
-            instance.customParameters[KEY + ".guidelines"] = [
-                {"height": "Descender", "thickness": 10},
-                {"height": "x-Height", "thickness": 10},
-                {"height": "Cap Height", "thickness": 10},
-                {"height": "Ascender", "thickness": 10},
-            ]
-        items = instance.customParameters[KEY + ".guidelines"]
-        # Make a deep mutable copy of this
-        self.w.tabs[2].list.set(
-            [
-                {"height": item["height"], "thickness": item["thickness"]}
-                for item in items
-            ]
-        )
-        self.createLayerPreview()
-
-    @property
-    def mode(self):
-        tabIndex = self.w.tabs.get()
-        if tabIndex == 0:
-            return "dotter"
-        elif tabIndex == 1:
-            return "stroker"
-        else:
-            return "guides"
-
-    def createLayerPreview(self, sender=None):
-        # Store the current mode inside the instance object
+    def create_layer_preview(self, sender=None):
         instance = self.selectedInstance
         if not instance:
             return
-        instance.customParameters[KEY + ".mode"] = self.mode
         if not Glyphs.font:
             return
 
@@ -498,37 +523,26 @@ class PendotDesigner:
             return
         self.idempotence = True
 
+        # Get a description of the effects
+        effects = create_effects(Glyphs.font, instance, preview=True)
+        self.w.instanceSummary.set(
+            ", ".join(effect.description() for effect in effects)
+        )
+
         for layer in Glyphs.font.selectedLayers:
             if (
                 layer.name == QUICK_PREVIEW_LAYER_NAME
                 or layer.name == PREVIEW_MASTER_NAME
             ):
-                continue  # No recursion!
+                continue
             glyph = layer.parent
-            # Find or create a quick preview layer
-            if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
-                destination_layer = glyph.layers[QUICK_PREVIEW_LAYER_NAME]
-            else:
-                destination_layer = GSLayer()
-                destination_layer.name = QUICK_PREVIEW_LAYER_NAME
-                destination_layer.width = layer.width
-                destination_layer.parent = layer.parent
-                destination_layer.associatedMasterId = layer.associatedMasterId
-                glyph.layers.append(destination_layer)
+            destination_layer = self.ensure_quick_preview_layer_exists(glyph, layer)
             # Do dotting and redrawing if we are in the edit view
             if Glyphs.font.parent.windowController().activeEditViewController():
                 destination_layer.visible = True
                 glyph.undoManager().disableUndoRegistration()
                 try:
-                    if self.mode == "dotter":
-                        destination_layer.shapes = doDotter(
-                            layer, instance, component=False
-                        )
-                    elif self.mode == "stroker":
-                        destination_layer.shapes = doStroker(layer, instance)
-                    else:
-                        destination_layer.shapes = layer.copyDecomposedLayer().shapes
-                        add_guidelines_to_layer(destination_layer, instance)
+                    destination_layer.shapes = transform_layer(layer, effects)
                     Glyphs.redraw()
                 except Exception as e:
                     print(traceback.format_exc())
@@ -537,61 +551,19 @@ class PendotDesigner:
                 glyph.undoManager().enableUndoRegistration()
         self.idempotence = False
 
-    @property
-    def selectedInstanceName(self):
-        return str(self.w.instanceSelector.widget.getItem())
-
-    @property
-    def selectedInstance(self):
-        for instance in Glyphs.font.instances:
-            if instance.name == self.selectedInstanceName:
-                return instance
-        return None
-
     def createPreviewMaster(self, sender=None):
         instance = self.selectedInstance or Glyphs.font.instances[0]
-        preview_master = None
-        for master in Glyphs.font.masters:
-            if master.name == PREVIEW_MASTER_NAME:
-                preview_master = master
-                break
-        if not preview_master:
-            preview_master = GSFontMaster()
-            Glyphs.font.masters.append(preview_master)
-            preview_master.name = PREVIEW_MASTER_NAME
-            preview_master.ascender = master.ascender
-            preview_master.capHeight = master.capHeight
-            preview_master.descender = master.descender
-            preview_master.xHeight = master.xHeight
 
-        del Glyphs.font.glyphs["_dot"]
-        addComponentGlyph(Glyphs.font, instance)
+        effects = create_effects(Glyphs.font, instance, preview=False)
 
         for glyph in Glyphs.font.glyphs:
-            if glyph.name == "_dot":
-                continue
             glyph.undoManager().disableUndoRegistration()
             layer = glyph.layers[0]  # Really?
-            # Find target layer
-            preview_layer = None
-            for l in glyph.layers:
-                if l.associatedMasterId == preview_master.id:
-                    preview_layer = l
-                    break
-            if not preview_layer:
-                preview_layer = GSLayer()
-                preview_layer.name = layer.name
-                preview_layer.associatedMasterId = preview_master.id
-                glyph.layers.append(preview_layer)
-            preview_layer.width = layer.width
-            if self.mode == "dotter":
-                preview_layer.shapes = doDotter(layer, instance, component=True)
-            elif self.mode == "stroker":
-                preview_layer.shapes = doStroker(layer, instance)
-            else:
-                preview_layer.shapes = layer.copyDecomposedLayer().shapes
-                add_guidelines_to_layer(preview_layer, instance)
+            preview_layer = self.ensure_full_preview_layer_exists(glyph, layer)
+            preview_layer.shapes = transform_layer(layer, effects)
             glyph.undoManager().enableUndoRegistration()
+        for effect in effects:
+            effect.postprocess_font()
         Glyphs.redraw()
 
     def migrate(self):

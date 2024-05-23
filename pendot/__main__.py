@@ -1,8 +1,13 @@
-from pendot.constants import getParams
-from .dotter import GSFont
-from pendot import dot_font, find_instance, stroke_font
 import argparse
 import sys
+
+from glyphsLib import load
+
+from pendot import create_effects, find_instance, transform_font
+from pendot.constants import KEY
+from pendot.dotter import Dotter
+from pendot.guidelines import Guidelines
+from pendot.stroker import Stroker
 
 
 # https://stackoverflow.com/questions/6365601
@@ -60,43 +65,25 @@ def main(args=None):
     if not args.command:
         parser.print_help()
         exit(1)
-    font = GSFont(args.input)
+    font = load(args.input)
     output = args.output or args.input.replace(
         ".glyphs", "-" + args.command + ".glyphs"
     )
+    gsinstance = find_instance(font, args.instance)
 
     if args.command == "auto":
-        gsinstance = find_instance(font, args.instance)
-        params = getParams(font, gsinstance, {"mode": "auto"})
-        mode = params["mode"]
-        if mode == "auto":
-            print(
-                f"Instance {args.instance} is not set up for pendot; "
-                "use Pendot Designer to choose a mode"
-            )
-            sys.exit(1)
-        elif mode == "dotter":
-            args.command = "dot"
-        elif mode == "stroker":
-            args.command = "stroke"
-        else:
-            print("Unknown mode", mode)
-            sys.exit(1)
-    if args.command == "dot":
-        params = {}
-        if hasattr(args, "dot_spacing") and args.dot_spacing:
-            params["dotSpacing"] = args.dot_spacing
-        if hasattr(args, "prevent_overlaps") and args.prevent_overlaps:
-            params["preventOverlaps"] = True
-        if hasattr(args, "split_paths") and args.split_paths:
-            params["splitPaths"] = True
-        dot_font(font, args.instance, params)
+        effects = create_effects(font, gsinstance, args.__dict__)
+    elif args.command == "dot":
+        effects = [Dotter(font, gsinstance, args.__dict__)]
     elif args.command == "stroke":
-        stroke_font(font, args.instance)
+        effects = [Stroker(font, gsinstance, args.__dict__)]
+    elif args.command == "guidelines":
+        effects = [Guidelines(font, gsinstance, args.__dict__)]
     else:
         print("Unknown command", args.command)
         sys.exit(1)
 
+    transform_font(font, effects)
     print("Saving to", output)
     font.save(output)
 
