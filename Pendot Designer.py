@@ -19,6 +19,7 @@ from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from pendot.effect.dotter import Dotter
 from pendot.effect.guidelines import Guidelines
 from pendot.effect.stroker import Stroker
+from pendot.effect.dotstart import DotStart
 from pendot import create_effects, transform_layer
 
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
@@ -275,6 +276,7 @@ class PendotDesigner:
         self.effects = [
             Dotter(font, instance),
             Stroker(font, instance),
+            DotStart(font, instance),
             Guidelines(font, instance),
         ]
 
