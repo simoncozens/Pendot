@@ -39,7 +39,7 @@ class Guidelines(Effect):
 
     def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
         if not layer.master:
-            return
+            return []
         gloverlap = self.parameter("guidelineOverlap", layer)
         guidelines = self.parameter("guidelines", layer)
 
