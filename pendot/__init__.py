@@ -75,5 +75,7 @@ def transform_layer(layer: GSLayer, effects: List[Effect]):
     results = []
     for effect in effects:
         newshapes = effect.process_layer_shapes(layer, paths)
+        if newshapes is None:
+            raise ValueError(f"Effect {effect} did not return shapes")
         results += newshapes
     return results
