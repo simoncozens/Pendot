@@ -3,9 +3,8 @@ from typing import List, Optional
 
 from ufostroker.ufostroker import constant_width_stroke as cws_rust
 
-from .effect import Effect
-from .glyphsbridge import CURVE, LINE, OFFCURVE, GSNode, GSPath, GSLayer, GSShape
-from .utils import decomposedPaths
+from pendot.effect import Effect
+from pendot.glyphsbridge import CURVE, LINE, OFFCURVE, GSNode, GSPath, GSLayer, GSShape
 
 type_map = {"": OFFCURVE, "curve": CURVE, "line": LINE}
 

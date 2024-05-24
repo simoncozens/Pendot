@@ -1,8 +1,8 @@
 from typing import List, NamedTuple
 
-from .constants import KEY
-from .effect import Effect
-from .glyphsbridge import (
+from pendot.constants import KEY
+from pendot.effect import Effect
+from pendot.glyphsbridge import (
     CURVE,
     LINE,
     OFFCURVE,
@@ -16,7 +16,7 @@ from .glyphsbridge import (
     GSShape,
     Message,
 )
-from .utils import (
+from pendot.utils import (
     Segment,
     TuplePoint,
     TupleSegment,
@@ -25,6 +25,7 @@ from .utils import (
     distance,
     pathLength,
     seg_to_tuples,
+    makeCircle,
 )
 
 try:
@@ -89,45 +90,6 @@ def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegmen
         midpoint = linePointAtT(*seg, t)
         return [seg[0], midpoint], [midpoint, seg[1]]
     return splitCubicAtT(*seg, t)
-
-
-# This is just for display purposes; for the real thing we'll use a
-# component
-
-
-def append_cubicseg(path, points):
-    path.nodes.append(GSNode(points[0], OFFCURVE))
-    path.nodes.append(GSNode(points[1], OFFCURVE))
-    path.nodes.append(GSNode(points[2], CURVE))
-
-
-def makeCircle(center: TuplePoint, radius: float):
-    centerx, centery = center
-    path = GSPath()
-    # We are using eight 45 degree circle segments, for accuracy at
-    # small sizes
-
-    # Work out the numbers for a unit circle, then scale and
-    # move them.
-    a_circle = [
-        [(1, 0.265216), (0.894643, 0.51957), (0.7071, 0.7071)],
-        [(0.51957, 0.894643), (0.265216, 1), (0, 1)],
-        [(-0.265216, 1), (-0.51957, 0.894643), (-0.7071, 0.7071)],
-        [(-0.894643, 0.51957), (-1, 0.265216), (-1, 0)],
-        [(-1, -0.265216), (-0.894643, -0.51957), (-0.7071, -0.7071)],
-        [(-0.51957, -0.894643), (-0.265216, -1), (0, -1)],
-        [(0.265216, -1), (0.51957, -0.894643), (0.7071, -0.7071)],
-        [(0.894643, -0.51957), (1, -0.265216), (1, 0)],
-    ]
-    for segment in a_circle:
-        append_cubicseg(
-            path, [(x * radius + centerx, y * radius + centery) for (x, y) in segment]
-        )
-    path.closed = True
-    for ix, node in enumerate(path.nodes):
-        if (ix + 1) % 3:
-            node.smooth = True
-    return path
 
 
 def splitAtForcedNode(path: GSPath):

@@ -5,9 +5,9 @@ from glyphsLib import load
 
 from pendot import create_effects, find_instance, transform_font
 from pendot.constants import KEY
-from pendot.dotter import Dotter
-from pendot.guidelines import Guidelines
-from pendot.stroker import Stroker
+from pendot.effect.dotter import Dotter
+from pendot.effect.guidelines import Guidelines
+from pendot.effect.stroker import Stroker
 
 
 # https://stackoverflow.com/questions/6365601

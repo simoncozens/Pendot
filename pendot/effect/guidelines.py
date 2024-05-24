@@ -1,7 +1,7 @@
 from typing import List
 
-from .effect import Effect
-from .glyphsbridge import GSPath, GSNode, GSLINE, GSLayer, GSShape
+from pendot.effect import Effect
+from pendot.glyphsbridge import GSPath, GSNode, GSLINE, GSLayer, GSShape
 
 
 # from https://github.com/mekkablue/Glyphs-Scripts/blob/a4421210dd17305e3205b7ca998cab579b778bf6/Paths/Fill%20Up%20with%20Rectangles.py

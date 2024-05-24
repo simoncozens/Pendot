@@ -1,7 +1,7 @@
 from typing import Optional, List
 
-from .constants import KEY
-from .glyphsbridge import GSLayer, GSFont, GSInstance, GSShape
+from pendot.constants import KEY
+from pendot.glyphsbridge import GSLayer, GSFont, GSInstance, GSShape
 
 
 class Effect:

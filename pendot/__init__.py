@@ -1,12 +1,12 @@
 from logging import getLogger
 from typing import Callable, List, Optional
 
-from pendot.constants import PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME, KEY
-from pendot.dotter import Dotter
+from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from pendot.effect import Effect
+from pendot.effect.dotter import Dotter
+from pendot.effect.guidelines import Guidelines
+from pendot.effect.stroker import Stroker
 from pendot.glyphsbridge import GSFont, GSInstance, GSLayer
-from pendot.guidelines import Guidelines
-from pendot.stroker import Stroker
 from pendot.utils import decomposedPaths
 
 try:

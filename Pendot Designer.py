@@ -16,9 +16,9 @@ from GlyphsApp import Glyphs, GSApplication, GSFontMaster, GSLayer
 sys.path.append(str(Path(__file__).parent.parent / "Plugins" / "Dotter"))
 
 from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
-from pendot.dotter import Dotter
-from pendot.guidelines import Guidelines
-from pendot.stroker import Stroker
+from pendot.effect.dotter import Dotter
+from pendot.effect.guidelines import Guidelines
+from pendot.effect.stroker import Stroker
 from pendot import create_effects, transform_layer
 
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
