@@ -468,13 +468,14 @@ class PendotDesigner:
     def reload_guidelines(self):
         instance = self.selectedInstance or Glyphs.font.instances[0]
         items = instance.customParameters[KEY + ".guidelines"]
-        # Make a deep mutable copy of this
-        self.guidelines_tab.list.set(
-            [
-                {"height": item["height"], "thickness": item["thickness"]}
-                for item in items
-            ]
-        )
+        if items:
+            # Make a deep mutable copy of this
+            self.guidelines_tab.list.set(
+                [
+                    {"height": item["height"], "thickness": item["thickness"]}
+                    for item in items
+                ]
+            )
         self.create_layer_preview()
 
     ## Other methods
