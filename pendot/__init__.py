@@ -37,7 +37,7 @@ def create_effects(
     args: Optional[object] = None,
     preview: bool = False,
 ):
-    effectlist = instance.customParameters.get(KEY + ".effects", [])
+    effectlist = instance.customParameters[KEY + ".effects"] or []
     if isinstance(effectlist, str):
         effectlist = [effectlist]
     effects = []
