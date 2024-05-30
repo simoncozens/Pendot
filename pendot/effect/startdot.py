@@ -8,6 +8,10 @@ from pendot.utils import makeCircle
 class StartDot(Effect):
     params = {"startDotSize": 30}
 
+    @property
+    def display_name(self):
+        return "Start Dot"
+
     def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
         newshapes = []
         for shape in shapes:

@@ -7,6 +7,10 @@ from pendot.glyphsbridge import GSLayer, GSFont, GSInstance, GSShape
 class Effect:
     params = {}
 
+    @property
+    def display_name(self):
+        return self.__class__.__name__
+
     def __init__(
         self,
         font: GSFont,
