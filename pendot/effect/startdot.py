@@ -5,8 +5,8 @@ from pendot.glyphsbridge import GSLayer, GSShape
 from pendot.utils import makeCircle
 
 
-class DotStart(Effect):
-    params = {"dotSize": 30}
+class StartDot(Effect):
+    params = {"startDotSize": 30}
 
     def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
         newshapes = []
@@ -14,5 +14,7 @@ class DotStart(Effect):
             if not shape.nodes:
                 continue
             start = (shape.nodes[0].position.x, shape.nodes[0].position.y)
-            newshapes.append(makeCircle(start, self.parameter("dotSize", layer) / 2))
+            newshapes.append(
+                makeCircle(start, self.parameter("startDotSize", layer) / 2)
+            )
         return newshapes

@@ -19,7 +19,7 @@ from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from pendot.effect.dotter import Dotter
 from pendot.effect.guidelines import Guidelines
 from pendot.effect.stroker import Stroker
-from pendot.effect.dotstart import DotStart
+from pendot.effect.startdot import StartDot
 from pendot import create_effects, transform_layer
 
 GSSteppingTextField = objc.lookUpClass("GSSteppingTextField")
@@ -276,13 +276,13 @@ class PendotDesigner:
         self.effects = [
             Dotter(font, instance),
             Stroker(font, instance),
-            DotStart(font, instance),
+            StartDot(font, instance),
             Guidelines(font, instance),
         ]
 
         self.w.tabs = vanilla.Tabs(
             "auto",
-            [obj.__class__.__name__ for obj in self.effects],
+            [obj.display_name for obj in self.effects],
             callback=self.create_layer_preview,
         )
 
@@ -510,7 +510,10 @@ class PendotDesigner:
             )
             self.w.tabs[0].contourSource.defaultwidget.setItems(alternate_layers)
             self.w.tabs[0].contourSource.overridewidget.setItems(alternate_layers)
-            for tab in (self.w.tabs[0], self.w.tabs[1]):
+            for effect, tab in zip(self.effects, self.w.tabs):
+                # Skip for Guidelines
+                if effect.__class__.__name__ == "Guidelines":
+                    continue
                 tab.glyphoverridelabel.set(
                     "Override glyph /" + layers[0].parent.name + "?"
                 )
