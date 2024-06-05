@@ -134,6 +134,10 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
         0: segs[0][0][1],
         1: segs[-1][-1][1],
     }
+    distance_lut = {
+        0: 0,
+        1: plen,
+    }
 
     for seg in segs:
         seglen = arclength(seg)
@@ -144,41 +148,35 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
             global_t = lengthHere / plen
             x_lut[global_t] = left[-1][0]
             y_lut[global_t] = left[-1][1]
+            distance_lut[global_t] = lengthHere
         lengthSoFar += seglen
 
+    inverted_distance_lut = {v: k for k, v in distance_lut.items()}
+
     dotsize = params["dotSize"]
-    orig_preferred_step = params["dotSize"] + params["dotSpacing"]
-    max_flex = params["dotSize"] + params["dotSpacing"] * 1.25
+    orig_preferred_step = dotsize + params["dotSpacing"]
+    # print(f"Path length is {plen}")
+    # print(f"Original preferred step is {orig_preferred_step}")
+    dotcount = plen / orig_preferred_step
     preferred_step = orig_preferred_step
+    # print(f"We have {dotcount} dots")
+    residue = (int(dotcount) - dotcount) * orig_preferred_step
+    # print(f"We have {residue} units left over")
+    # Adjust preferred step to fit residue
+    adjustment = residue / int(dotcount)
+    if abs(adjustment / params["dotSpacing"]) <= (params["flexPercent"] / 100):
+        preferred_step = orig_preferred_step - adjustment
+    else:
+        print("Could not adjust dot spacing to form an even number of dots")
+    # print(f"New preferred step is {preferred_step}")
+    # print(f"This yields {plen / preferred_step} dots")
+
     centers.append(Center(pos=segs[0][0], forced=True))
     centers.append(Center(pos=segs[-1][-1], forced=True))
-    # Work out where the last-but-one dot should be
-    iterations = 0
-    while iterations < params["dotSpacing"]:
-        num_dots = int(plen / preferred_step)
-        this_t = preferred_step * num_dots / plen
-        (x, y) = piecewiseLinearMap(this_t, x_lut), piecewiseLinearMap(this_t, y_lut)
-        last_but_one = Center(pos=(x, y), forced=False)
-        # If the last but one dot is within, let's say, 10% of a dotsize, we're
-        # OK because it will be removed by the overlap prevention code. But
-        # if we're between 10% dotsize and 125% of spacing, we need to re-evaluate
-        lbo_distance = last_but_one.distance(centers[-1])
-        if lbo_distance < 0.1 * dotsize or lbo_distance > max_flex:
-            break
-        # Walk up and down the path to find a better step size
-        preferred_step = orig_preferred_step + (-1) ** iterations * iterations
-        # print(
-        #     "ITeration ",
-        #     iterations,
-        #     "Retrying with distance ",
-        #     lbo_distance,
-        #     " and preferred step ",
-        #     preferred_step,
-        # )
-        iterations += 1
+
     start = preferred_step  # Ignore first point
     while start < plen:
-        this_t = start / plen
+        this_t = piecewiseLinearMap(start, inverted_distance_lut)
         (x, y) = piecewiseLinearMap(this_t, x_lut), piecewiseLinearMap(this_t, y_lut)
         centers.append(Center(pos=(x, y), forced=False))
         start += preferred_step
@@ -273,6 +271,7 @@ class Dotter(Effect):
     params = {
         "dotSize": 15,
         "dotSpacing": 15,
+        "flexPercent": 25,  # "Flexibility" of the dots
         "preventOverlaps": True,
         "splitPaths": False,
         "contourSource": "<Default>",
