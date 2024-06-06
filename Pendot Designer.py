@@ -593,7 +593,7 @@ class PendotDesigner:
                 for ix, key in enumerate(instance.userData.keys()):
                     if key.startswith(KEY + "."):
                         instance.customParameters[key] = instance.userData[key]
-                        to_delete.append(ix)
+                        to_delete.append(key)
             for key in reversed(to_delete):
                 del instance.userData[key]
 
