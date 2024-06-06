@@ -163,7 +163,7 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
     residue = (int(dotcount) - dotcount) * orig_preferred_step
     # print(f"We have {residue} units left over")
     # Adjust preferred step to fit residue
-    adjustment = residue / int(dotcount)
+    adjustment = residue / int(max(dotcount, 1))
     if abs(adjustment / params["dotSpacing"]) <= (params["flexPercent"] / 100):
         preferred_step = orig_preferred_step - adjustment
     else:
