@@ -447,12 +447,16 @@ class PendotDesigner:
             return
         selectedIndex = selectedIndexes[0]
         instance = self.selectedInstance or Glyphs.font.instances[0]
+        if not instance.customParameters[KEY + ".guidelines"]:
+            instance.customParameters[KEY + ".guidelines"] = []
         items = instance.customParameters[KEY + ".guidelines"]
         del items[selectedIndex]
         self.reload_guidelines()
 
     def add_guideline(self, sender=None):
         instance = self.selectedInstance or Glyphs.font.instances[0]
+        if not instance.customParameters[KEY + ".guidelines"]:
+            instance.customParameters[KEY + ".guidelines"] = []
         items = instance.customParameters[KEY + ".guidelines"]
         items.append({"height": "0", "thickness": 10})
         self.reload_guidelines()
