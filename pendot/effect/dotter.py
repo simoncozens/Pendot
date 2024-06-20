@@ -347,4 +347,14 @@ class Dotter(Effect):
         # If we are in Glyphsapp, then we want to draw a dot
         if self.preview:
             return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
-        return [GSComponent("_dot", c) for c in newcenters]
+        component_size = self.instance.customParameters[KEY + ".dotSize"]
+        components = []
+        for center in newcenters:
+            comp = GSComponent("_dot", center)
+            if params["dotSize"] != component_size:
+                comp.scale = (
+                    params["dotSize"] / component_size,
+                    params["dotSize"] / component_size,
+                )
+            components.append(comp)
+        return components
