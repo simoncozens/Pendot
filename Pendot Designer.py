@@ -179,7 +179,10 @@ class OverridableComponent(vanilla.Group):
             # There is now an override
             self.overridewidget.enable(True)
             if not self.overridewidget.get():
-                self.overridewidget.set(self.typecast(self.defaultwidget.get()))
+                if isinstance(self.overridewidget, vanilla.PopUpButton):
+                    self.overridewidget.setItem(self.defaultwidget.getItem())
+                else:
+                    self.overridewidget.set(self.typecast(self.defaultwidget.get()))
             layer.userData[layer_instance_override] = self.typecast(
                 self.overridewidget.get()
             )
