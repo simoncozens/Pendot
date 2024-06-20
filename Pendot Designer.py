@@ -491,11 +491,12 @@ class PendotDesigner:
     def finish(self, sender=None):
         Glyphs.removeCallback(self.on_layer_change)
         Glyphs.removeCallback(self.create_layer_preview)
-        # Make quick preview layer invisible
-        for layer in Glyphs.font.selectedLayers:
-            glyph = layer.parent
-            if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
-                glyph.layers[QUICK_PREVIEW_LAYER_NAME].visible = False
+        if Glyphs.font:
+            # Make quick preview layer invisible
+            for layer in Glyphs.font.selectedLayers:
+                glyph = layer.parent
+                if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
+                    glyph.layers[QUICK_PREVIEW_LAYER_NAME].visible = False
         del self.w
 
     def on_layer_change(self, sender=None):
