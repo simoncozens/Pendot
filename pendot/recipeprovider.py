@@ -32,6 +32,7 @@ class Pendot(GFBuilder):
     def build_a_static(self, instance, guidelines):
         source = self.sources[0].path
         family_name = self.sources[0].family_name
+        final_family_name = self.sources[0].family_name + " " + instance.name
         filename = family_name.replace(" ", "") + "-" + instance.name.replace(" ", "")
         new_glyphs_file = "build/{}.glyphs".format(filename)
         outdir = self.config["ttDir"]
@@ -64,6 +65,11 @@ class Pendot(GFBuilder):
             {
                 "operation": "buildTTF",
                 "fontmake_args": self.fontmake_args(self.sources[0]),
+            },
+            {
+                "operation": "rename",
+                "name": final_family_name,
+                "args": "--just-family"
             },
             self.fix(),
         ]
