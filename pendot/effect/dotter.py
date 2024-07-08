@@ -166,8 +166,8 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
     adjustment = residue / int(max(dotcount, 1))
     if abs(adjustment / params["dotSpacing"]) <= (params["flexPercent"] / 100):
         preferred_step = orig_preferred_step - adjustment
-    else:
-        print("Could not adjust dot spacing to form an even number of dots")
+    # else:
+    #     print("Could not adjust dot spacing to form an even number of dots")
     # print(f"New preferred step is {preferred_step}")
     # print(f"This yields {plen / preferred_step} dots")
 
