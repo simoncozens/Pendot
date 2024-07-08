@@ -36,6 +36,41 @@ def seg_to_tuples(seg: Segment) -> TupleSegment:
     return [(pt.x, pt.y) for pt in seg]
 
 
+def seg_to_kurbo(seg: Segment) -> TupleSegment:
+    import kurbopy
+
+    if type(seg).__name__ == "GSPathSegment":
+        seg = seg.segmentStruct()[0][0 : seg.countOfPoints()]
+    seg = [kurbopy.Point(pt.x, pt.y) for pt in seg]
+    if len(seg) == 4:
+        return kurbopy.CubicBez(*seg)
+    else:
+        return kurbopy.Line(*seg)
+
+
+def path_to_kurbo(path: GSPath):
+    import kurbopy
+
+    bezpath = kurbopy.BezPath()
+
+    for ix, seg in enumerate(path.segments):
+        if type(seg).__name__ == "GSPathSegment":
+            seg = seg.segmentStruct()[0][0 : seg.countOfPoints()]
+        if ix == 0:
+            bezpath.move_to(kurbopy.Point(seg[0].x, seg[0].y))
+        if len(seg) == 4:
+            bezpath.cubic_to(
+                kurbopy.Point(seg[1].x, seg[1].y),
+                kurbopy.Point(seg[2].x, seg[2].y),
+                kurbopy.Point(seg[3].x, seg[3].y),
+            )
+        else:
+            bezpath.line_to(kurbopy.Point(seg[1].x, seg[1].y))
+    if path.closed:
+        bezpath.close_path()
+    return bezpath
+
+
 def arclength(seg: Union[Segment, TupleSegment], approx=False) -> float:
     # For GSSegments, we could just return seg.length() here, but we want to
     # ensure that the same algorithm is used in both Glyphs and

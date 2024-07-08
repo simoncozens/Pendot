@@ -20,11 +20,11 @@ from pendot.utils import (
     Segment,
     TuplePoint,
     TupleSegment,
-    arclength,
     decomposedPaths,
     distance,
     pathLength,
     seg_to_tuples,
+    seg_to_kurbo,
     makeCircle,
 )
 
@@ -117,22 +117,25 @@ def interpolate_lut(t, lut):
 
 
 def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
-    segs = [seg_to_tuples(seg) for seg in path.segments]
+    segs = [seg_to_kurbo(seg) for seg in path.segments]
     if not segs or not segs[0]:
         return
 
+    pathstart = segs[0].start()
+    pathend = segs[-1].end()
+
     LIMIT = 100
-    plen = pathLength(path)
+    plen = sum([seg.arclen(0.1) for seg in segs])
     if plen == 0:
         return
     lengthSoFar = 0
     x_lut = {
-        0: segs[0][0][0],
-        1: segs[-1][-1][0],
+        0: pathstart.x,
+        1: pathend.x,
     }
     y_lut = {
-        0: segs[0][0][1],
-        1: segs[-1][-1][1],
+        0: pathstart.y,
+        1: pathend.y,
     }
     distance_lut = {
         0: 0,
@@ -140,14 +143,15 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
     }
 
     for seg in segs:
-        seglen = arclength(seg)
+        seglen = seg.arclen(0.1)
         for t in range(1, LIMIT):
             local_t = t / LIMIT
-            left, _right = splitSegment(seg, local_t)
-            lengthHere = lengthSoFar + arclength(left, approx=True)
+            left = seg.subsegment((0, local_t))
+            lengthHere = lengthSoFar + left.arclen(0.1)
             global_t = lengthHere / plen
-            x_lut[global_t] = left[-1][0]
-            y_lut[global_t] = left[-1][1]
+            leftend = left.end()
+            x_lut[global_t] = leftend.x
+            y_lut[global_t] = leftend.y
             distance_lut[global_t] = lengthHere
         lengthSoFar += seglen
 
@@ -171,8 +175,8 @@ def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
     # print(f"New preferred step is {preferred_step}")
     # print(f"This yields {plen / preferred_step} dots")
 
-    centers.append(Center(pos=segs[0][0], forced=True))
-    centers.append(Center(pos=segs[-1][-1], forced=True))
+    centers.append(Center(pos=[x_lut[0], y_lut[0]], forced=True))
+    centers.append(Center(pos=[x_lut[1], y_lut[1]], forced=True))
 
     start = preferred_step  # Ignore first point
     while start < plen:
