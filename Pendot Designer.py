@@ -567,6 +567,8 @@ class PendotDesigner:
             # Do dotting and redrawing if we are in the edit view
             if Glyphs.font.parent.windowController().activeEditViewController():
                 destination_layer.visible = True
+                if not glyph.undoManager():
+                    continue
                 glyph.undoManager().disableUndoRegistration()
                 try:
                     destination_layer.shapes = transform_layer(layer, effects)
