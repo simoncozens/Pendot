@@ -279,7 +279,7 @@ def splitPathsAtIntersections(paths):
         # is expensive, do it in advance
         segs1 = p1.segments
         s1_bboxes = [seg_to_kurbo(s).bounding_box() for s in segs1]
-        for p2 in paths[ix + 1 :]:
+        for p2 in list(paths)[ix + 1 :]:  # list() needed for GlyphsApp
             # Stupid case of two identical paths
             if str(p1.nodes) == str(p2.nodes):
                 continue
