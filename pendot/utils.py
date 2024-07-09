@@ -59,7 +59,7 @@ def path_to_kurbo(path: GSPath):
         if ix == 0:
             bezpath.move_to(kurbopy.Point(seg[0].x, seg[0].y))
         if len(seg) == 4:
-            bezpath.cubic_to(
+            bezpath.curve_to(
                 kurbopy.Point(seg[1].x, seg[1].y),
                 kurbopy.Point(seg[2].x, seg[2].y),
                 kurbopy.Point(seg[3].x, seg[3].y),
@@ -69,6 +69,10 @@ def path_to_kurbo(path: GSPath):
     if path.closed:
         bezpath.close_path()
     return bezpath
+
+
+def kurbo_bounds_intersect(b1: "Rect", b2: "Rect") -> bool:
+    return b1.intersect(b2).size().max_side() > 0
 
 
 def arclength(seg: Union[Segment, TupleSegment], approx=False) -> float:

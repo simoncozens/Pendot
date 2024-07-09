@@ -1,5 +1,6 @@
 from typing import List, NamedTuple
 
+import kurbopy
 from pendot.constants import KEY
 from pendot.effect import Effect
 from pendot.glyphsbridge import (
@@ -22,6 +23,8 @@ from pendot.utils import (
     TupleSegment,
     decomposedPaths,
     distance,
+    kurbo_bounds_intersect,
+    path_to_kurbo,
     pathLength,
     seg_to_tuples,
     seg_to_kurbo,
@@ -193,22 +196,42 @@ def insertPointInPathUnlessThere(path, pt: TuplePoint):
             set_locally_forced(node)
             return
     # Find nearest point on nearest segment
-    min_dist = 100000000
-    insertion_point_index = None
+    best = None
     new_left_right: tuple[TupleSegment, TupleSegment] = None
-    TICKS = 1000
+    nearest_seg = None
+    insertion_point_index = None
+    kpt = kurbopy.Point(pt[0], pt[1])
     index = 0
-    for seg in path.segments:
-        seg = seg_to_tuples(seg)
-        for t in range(1, TICKS):
-            left, right = splitSegment(seg, t / TICKS)
-            dist = distance(left[-1], pt)
-            if dist < min_dist:
-                min_dist = dist
-                new_left_right = left + right[1:]
-                insertion_point_index = index
+    for ix, seg in enumerate(path.segments):
+        kseg = seg_to_kurbo(seg)
+        nearest = kseg.nearest(kpt, 0.1)
+        if best is None or nearest.get_distance_sq() < best.get_distance_sq():
+            best = nearest
+            nearest_seg = ix
+            best_t = nearest.get_t()
+            left, right = kseg.subsegment((0, best_t)), kseg.subsegment((best_t, 1))
+            if isinstance(left, kurbopy.CubicBez):
+                new_left_right = [
+                    (p.x, p.y)
+                    for p in [
+                        left.p0,
+                        left.p1,
+                        left.p2,
+                        left.p3,
+                        right.p1,
+                        right.p2,
+                        right.p3,
+                    ]
+                ]
+            else:
+                new_left_right = [
+                    (left.start().x, left.start().y),
+                    pt,
+                    (right.end().x, right.end().y),
+                ]
+            insertion_point_index = index
         index += len(seg) - 1
-    if insertion_point_index is None:
+    if nearest_seg is None:
         raise ValueError("Point not on path...")
     # print("Old path nodes", path.nodes)
     # print("Splitting path at ", pt, " to ", new_left_right)
@@ -247,16 +270,28 @@ def boundsIntersect(bounds1, bounds2):
 def splitPathsAtIntersections(paths):
     # We don't necessarily need to split the paths; we can
     # get away with adding a new node and setting it to forced.
-    for p1 in paths:
-        for p2 in paths:
-            if p1 == p2:
+    if len(paths) == 1:
+        return
+    for ix, p1 in enumerate(paths):
+        p1_kurbo = path_to_kurbo(p1)
+        p1_bounds = p1_kurbo.bounding_box()
+        # Compiling the list of segments is expensive (and their bounds)
+        # is expensive, do it in advance
+        segs1 = p1.segments
+        s1_bboxes = [seg_to_kurbo(s).bounding_box() for s in segs1]
+        for p2 in paths[ix + 1 :]:
+            # Stupid case of two identical paths
+            if str(p1.nodes) == str(p2.nodes):
                 continue
-            if not boundsIntersect(p1.bounds, p2.bounds):
+            p2_kurbo = path_to_kurbo(p2)
+            if not kurbo_bounds_intersect(p1_bounds, p2_kurbo.bounding_box()):
                 continue
-            for s1 in p1.segments:
+            for s1, bbox1 in zip(segs1, s1_bboxes):
                 for s2 in p2.segments:
-                    # Yes this is O(n^2). Yes I could improve it.
-                    # Let's see if it's actually a problem first.
+                    if not kurbo_bounds_intersect(
+                        bbox1, seg_to_kurbo(s2).bounding_box()
+                    ):
+                        continue
                     intersections = findIntersections(s1, s2)
                     for i in intersections:
                         if not (i.t1 >= 0 and i.t1 <= 1) or not (
