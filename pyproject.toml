@@ -30,3 +30,4 @@ pendot = "pendot.__main__:main"
 
 [tool.setuptools_scm]
 write_to = "pendot/_version.py"
+git_describe_command = "git describe --match 'v*'"
