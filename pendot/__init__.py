@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from pendot.effect import Effect
@@ -20,24 +20,26 @@ except ImportError:
 logger = getLogger(__name__)
 
 
-def find_instance(font: GSFont, instance: str) -> GSInstance:
+def find_instance(font: GSFont, instance: str) -> Optional[GSInstance]:
     gsinstance = None
     for i in font.instances:
         if i.name == instance:
             gsinstance = i
             break
-    if not gsinstance:
-        raise ValueError("Could not find instance " + instance)
     return gsinstance
 
 
 def create_effects(
     font: GSFont,
-    instance: GSInstance,
+    instance: Optional[GSInstance],
     args: Optional[object] = None,
     preview: bool = False,
 ):
-    effectlist = instance.customParameters[KEY + ".effects"] or []
+    effectlist = []
+    if args.get("effects"):
+        effectlist = args["effects"]
+    elif instance:
+        effectlist = instance.customParameters[KEY + ".effects"]
     if isinstance(effectlist, str):
         effectlist = [effectlist]
     effects = []

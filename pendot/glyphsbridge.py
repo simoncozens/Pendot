@@ -18,17 +18,17 @@ try:
     )
 except ImportError:
     from glyphsLib.classes import (
-        GSFont,
-        GSInstance,
+        GSFont,  # noqa: F401
+        GSInstance,  # noqa: F401
         GSPath,
-        GSLayer,
+        GSLayer,  # noqa: F401
         GSComponent,
-        GSGlyph,
-        GSNode,
-        OFFCURVE,
-        CURVE,
-        LINE,
-        GSLINE,
+        GSGlyph,  # noqa: F401
+        GSNode,  # noqa: F401
+        OFFCURVE,  # noqa: F401
+        CURVE,  # noqa: F401
+        LINE,  # noqa: F401
+        GSLINE,  # noqa: F401
     )
     import sys
 

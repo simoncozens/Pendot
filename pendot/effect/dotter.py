@@ -8,9 +8,7 @@ from pendot.glyphsbridge import (
     LINE,
     OFFCURVE,
     GSComponent,
-    GSFont,
     GSGlyph,
-    GSInstance,
     GSLayer,
     GSNode,
     GSPath,
@@ -39,7 +37,7 @@ try:
         splitCubicAtT,
     )
     from fontTools.varLib.models import piecewiseLinearMap
-except:
+except ImportError:
     Message("You need to install the fontTools library to run dotter")
 
 
@@ -79,7 +77,7 @@ def isForced(node: GSNode) -> bool:
     )
 
 
-def findIntersections(seg1: Segment, seg2: Segment) -> list[Intersection]:
+def findIntersections(seg1: Segment, seg2: Segment) -> List["Intersection"]:
     seg1 = seg_to_tuples(seg1)
     seg2 = seg_to_tuples(seg2)
     try:
@@ -352,7 +350,7 @@ class Dotter(Effect):
         else:
             glyph = GSGlyph("_dot")
             self.font.glyphs.append(glyph)
-        size = self.instance.customParameters[KEY + ".dotSize"]
+        size = self.parameter(".dotSize")
         for master in self.font.masters:
             if glyph.layers[master.id]:
                 layer = glyph.layers[master.id]

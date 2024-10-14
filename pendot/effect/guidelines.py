@@ -1,25 +1,8 @@
 from typing import List
 
 from pendot.effect import Effect
-from pendot.glyphsbridge import GSPath, GSNode, GSLINE, GSLayer, GSShape
-
-
-# from https://github.com/mekkablue/Glyphs-Scripts/blob/a4421210dd17305e3205b7ca998cab579b778bf6/Paths/Fill%20Up%20with%20Rectangles.py
-def drawRect(myBottomLeft, myTopRight):
-    myRect = GSPath()
-    myCoordinates = [
-        [myBottomLeft[0], myBottomLeft[1]],
-        [myTopRight[0], myBottomLeft[1]],
-        [myTopRight[0], myTopRight[1]],
-        [myBottomLeft[0], myTopRight[1]],
-    ]
-
-    for thisPoint in myCoordinates:
-        newNode = GSNode((thisPoint[0], thisPoint[1]), GSLINE)
-        myRect.nodes.append(newNode)
-
-    myRect.closed = True
-    return myRect
+from pendot.glyphsbridge import GSLayer, GSShape
+from pendot.utils import makeRect
 
 
 class Guidelines(Effect):
@@ -72,6 +55,6 @@ class Guidelines(Effect):
 
             bottomLeft = (-gloverlap, height)
             topRight = (layer.width + gloverlap, height + thickness)
-            layerRect = drawRect(bottomLeft, topRight)
+            layerRect = makeRect(bottomLeft, topRight)
             newshapes.append(layerRect)
         return newshapes

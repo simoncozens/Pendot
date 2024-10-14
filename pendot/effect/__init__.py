@@ -14,7 +14,7 @@ class Effect:
     def __init__(
         self,
         font: GSFont,
-        instance: GSInstance,
+        instance: Optional[GSInstance],
         overrides: Optional[dict] = None,
         preview: bool = False,
     ):
@@ -25,14 +25,15 @@ class Effect:
 
     def parameter(self, paramname: str, layer: Optional[GSLayer]):
         # First try inside the layer
-        layer_instance_override = KEY + "." + self.instance.name + "." + paramname
-        if layer and layer_instance_override in layer.userData:
-            return layer.userData[layer_instance_override]
-        # Then try inside the instance; but here we look in custom parameters
-        elif KEY + "." + paramname in self.instance.customParameters:
-            return self.instance.customParameters[KEY + "." + paramname]
+        if self.instance:
+            layer_instance_override = KEY + "." + self.instance.name + "." + paramname
+            if layer and layer_instance_override in layer.userData:
+                return layer.userData[layer_instance_override]
+            # Then try inside the instance; but here we look in custom parameters
+            elif KEY + "." + paramname in self.instance.customParameters:
+                return self.instance.customParameters[KEY + "." + paramname]
         # Then try command line parameters
-        elif self.overrides and paramname in self.overrides:
+        if self.overrides and paramname in self.overrides:
             return self.overrides[paramname]
         else:  # Take the default
             return self.params[paramname]

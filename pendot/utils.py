@@ -4,18 +4,22 @@ import copy
 from fontTools.misc.transform import Identity, Transform
 
 
-from pendot.glyphsbridge import GSPath, GSNode, GSLayer, OFFCURVE, CURVE
+from pendot.glyphsbridge import (
+    GSPath,
+    GSNode,
+    GSLayer,
+    OFFCURVE,
+    CURVE,
+    GSLINE,
+    Message,
+)
 
 try:
     from fontTools.misc.bezierTools import (
-        Intersection,
-        segmentSegmentIntersections,
         approximateCubicArcLength,
         calcCubicArcLength,
-        linePointAtT,
-        splitCubicAtT,
     )
-except:
+except ImportError:
     Message("You need to install the fontTools library to run dotter")
 
 
@@ -148,3 +152,21 @@ def makeCircle(center: TuplePoint, radius: float):
         if (ix + 1) % 3:
             node.smooth = True
     return path
+
+
+# from https://github.com/mekkablue/Glyphs-Scripts/blob/a4421210dd17305e3205b7ca998cab579b778bf6/Paths/Fill%20Up%20with%20Rectangles.py
+def makeRect(myBottomLeft, myTopRight):
+    myRect = GSPath()
+    myCoordinates = [
+        [myBottomLeft[0], myBottomLeft[1]],
+        [myTopRight[0], myBottomLeft[1]],
+        [myTopRight[0], myTopRight[1]],
+        [myBottomLeft[0], myTopRight[1]],
+    ]
+
+    for thisPoint in myCoordinates:
+        newNode = GSNode((thisPoint[0], thisPoint[1]), GSLINE)
+        myRect.nodes.append(newNode)
+
+    myRect.closed = True
+    return myRect

@@ -18,18 +18,11 @@ class Pendot(GFBuilder):
                 "$outputDir", self.config["outputDir"]
             )
         self.source = glyphsLib.load(self.sources[0].path)
-        for guideline in self.guidelines:
-            for instance in self.source.instances:
-                self.build_a_static(instance, guidelines=guideline)
+        for instance in self.source.instances:
+            self.build_a_static(instance)
         return self.recipe
 
-    @property
-    def guidelines(self):
-        if self.config.get("doGuidelines"):
-            return [False, True]
-        return [False]
-
-    def build_a_static(self, instance, guidelines):
+    def build_a_static(self, instance):
         source = self.sources[0].path
         family_name = self.sources[0].family_name
         final_family_name = self.sources[0].family_name + " " + instance.name
