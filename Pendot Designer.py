@@ -158,6 +158,8 @@ class OverridableComponent(vanilla.Group):
         self.effect = effect
         self.postChange = postChange
         self.label = vanilla.TextBox((0, 0, 200, 24), label)
+        if "help" in param_param:
+            self.label.setToolTip(param_param["help"])
         self.defaultwidget = widgetclass(
             (200, 0, 100, 24), callback=self.updateDefault, **widgetargs
         )

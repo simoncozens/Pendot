@@ -59,7 +59,7 @@ class Stroker(Effect):
         },
         "segmentWise": {
             "default": False,
-            "help": "Stroke each segment of the path independently (use with circular caps ansd joins)",
+            "help": "Stroke each segment of the path independently (use with circular caps and joins)",
         },
     }
 
