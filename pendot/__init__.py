@@ -4,6 +4,7 @@ from typing import List, Optional
 from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from pendot.effect import Effect
 from pendot.effect.startdot import StartDot
+from pendot.effect.copy import Copy
 from pendot.effect.dotter import Dotter
 from pendot.effect.guidelines import Guidelines
 from pendot.effect.stroker import Stroker
@@ -45,6 +46,7 @@ def create_effects(
     effects = []
     for name in effectlist:
         effectmap = {
+            "Copy": Copy,
             "Stroker": Stroker,
             "Dotter": Dotter,
             "Guidelines": Guidelines,
