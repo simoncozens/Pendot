@@ -27,15 +27,40 @@ class Point:
 
 class Stroker(Effect):
     params = {
-        "strokerWidth": 50,
-        "strokerHeight": 50,
-        "strokerAngle": 0,
-        "startCap": "round",
-        "endCap": "round",
-        "joinType": "round",
-        "removeExternal": False,
-        "removeInternal": False,
-        "segmentWise": False,
+        "strokerWidth": {"default": 50, "help": "Width of the stroke in font units"},
+        "strokerHeight": {
+            "default": None,
+            "type": int,
+            "help": "Height of the stroke; if not set, it will be the same as the width",
+        },
+        "strokerAngle": {"default": 0, "help": "Angle of the stroke in degrees"},
+        "startCap": {
+            "default": "round",
+            "choices": ["round", "square", "circle"],
+            "help": "Type of start cap",
+        },
+        "endCap": {
+            "default": "round",
+            "choices": ["round", "square", "circle"],
+            "help": "Type of end cap",
+        },
+        "joinType": {
+            "default": "round",
+            "choices": ["round", "bevel", "mitre", "circle"],
+            "help": "Type of join",
+        },
+        "removeExternal": {
+            "default": False,
+            "help": "Remove external overlaps of the stroke",
+        },
+        "removeInternal": {
+            "default": False,
+            "help": "Remove internal overlaps of the stroke",
+        },
+        "segmentWise": {
+            "default": False,
+            "help": "Stroke each segment of the path independently (use with circular caps ansd joins)",
+        },
     }
 
     @property
@@ -55,17 +80,21 @@ class Stroker(Effect):
         startcap = self.parameter("startCap", layer).lower()
         endcap = self.parameter("endCap", layer).lower()
         jointype = self.parameter("joinType", layer).lower()
-        if startcap not in ["round", "square", "circle"]:
+        if startcap not in self.params["startCap"]["choices"]:
             raise ValueError("Unknown start cap type")
-        if endcap not in ["round", "square", "circle"]:
+        if endcap not in self.params["endCap"]["choices"]:
             raise ValueError("Unknown end cap type")
-        if jointype not in ["round", "bevel", "mitre", "circle"]:
+        if jointype not in self.params["joinType"]["choices"]:
             raise ValueError("Unknown join type")
+
+        height = self.parameter("strokerHeight", layer)
+        if height is None:
+            height = self.parameter("strokerWidth", layer)
 
         result = cws_rust(
             list_of_list_of_nodes,
             width=float(self.parameter("strokerWidth", layer)) / 2,
-            height=float(self.parameter("strokerHeight", layer)) / 2,
+            height=float(height) / 2,
             angle=float(self.parameter("strokerAngle", layer) or 0),
             startcap=startcap,
             endcap=endcap,

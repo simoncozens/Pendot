@@ -6,7 +6,7 @@ from pendot.utils import makeCircle
 
 
 class StartDot(Effect):
-    params = {"startDotSize": 30}
+    params = {"startDotSize": {"default": 30}}
 
     @property
     def display_name(self):

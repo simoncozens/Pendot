@@ -39,7 +39,8 @@ def main(args=None):
     subparsers = parser.add_subparsers(dest="command")
 
     auto_parser = subparsers.add_parser(
-        "auto", help="Either dot or stroke a font depending on the instance parameters"
+        "auto",
+        help="Either dot or stroke a font depending on the instance parameters",
     )
     auto_parser.add_argument("--output", "-o", help="Output font file")
     auto_parser.add_argument("--config", help="JSON configuration as text")
@@ -47,20 +48,25 @@ def main(args=None):
     auto_parser.add_argument("input", help="Input font file")
     auto_parser.add_argument("instance", help="Instance name", nargs="?")
 
-    dot_parser = subparsers.add_parser("dot", help="Add dots to a font")
+    dot_parser = subparsers.add_parser(
+        "dot",
+        help="Add dots to a font",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     dot_parser.add_argument("--output", "-o", help="Output font file")
-    dot_parser.add_argument("--dot-size", type=float, help="Dot size")
-    dot_parser.add_argument("--dot-spacing", type=float, help="Dot spacing")
-    dot_parser.add_argument(
-        "--prevent-overlaps", action="store_true", help="Prevent overlaps"
-    )
-    dot_parser.add_argument(
-        "--split-paths", action="store_true", help="Split paths at intersections"
-    )
+    Dotter.add_parser_args(dot_parser)
+    dot_parser.add_argument("input", help="Input font file")
+    dot_parser.add_argument("instance", help="Instance name", nargs="?")
 
-    stroke_parser = subparsers.add_parser("stroke", help="Create a stroked font")
+    stroke_parser = subparsers.add_parser(
+        "stroke",
+        help="Create a stroked font",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    Stroker.add_parser_args(stroke_parser)
     stroke_parser.add_argument("input", help="Input font file")
     stroke_parser.add_argument("--output", "-o", help="Output font file")
+    stroke_parser.add_argument("instance", help="Instance name", nargs="?")
 
     parser.set_default_subparser("auto")
     args = parser.parse_args(args)

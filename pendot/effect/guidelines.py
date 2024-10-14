@@ -9,14 +9,23 @@ from pendot.utils import makeRect
 
 class Guidelines(Effect):
     params = {
-        "guidelines": [
-            {"height": "Descender", "thickness": 10},
-            {"height": "x-Height", "thickness": 10},
-            {"height": "Cap Height", "thickness": 10},
-            {"height": "Ascender", "thickness": 10},
-        ],
-        "guidelineOverlap": 0,
-        "guidelineQuantize": 0,
+        "guidelines": {
+            "default": [
+                {"height": "Descender", "thickness": 10},
+                {"height": 0, "thickness": 20},
+                {"height": "x-Height", "thickness": 5},
+                {"height": "Cap Height", "thickness": 10},
+                # {"height": "Ascender", "thickness": 10},
+            ]
+        },
+        "guidelineOverlap": {
+            "default": 0,
+            "help": "Overlap of the guidelines on left and right in font units",
+        },
+        "guidelineQuantize": {
+            "default": 0,
+            "help": "Quantize the guidelines to a multiple of this value",
+        },
     }
 
     @property

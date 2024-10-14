@@ -305,12 +305,30 @@ def splitPathsAtIntersections(paths):
 
 class Dotter(Effect):
     params = {
-        "dotSize": 15,
-        "dotSpacing": 15,
-        "flexPercent": 25,  # "Flexibility" of the dots
-        "preventOverlaps": True,
-        "splitPaths": False,
-        "contourSource": "<Default>",
+        "dotSize": {
+            "default": 15,
+            "help": "Size of dots",
+        },
+        "dotSpacing": {
+            "default": 15,
+            "help": "Preferred space between dots",
+        },
+        "flexPercent": {
+            "default": 25,
+            "help": "Percentage amount by which spacing may be adjusted to fit an even number of dots",
+        },
+        "preventOverlaps": {
+            "default": True,
+            "help": "Prevent dots from overlapping",
+        },
+        "splitPaths": {
+            "default": False,
+            "help": "Split paths at intersections before dotting",
+        },
+        "contourSource": {
+            "default": "<Default>",
+            "help": "Layer to use as source for contours",
+        },
     }
 
     @property
@@ -320,22 +338,22 @@ class Dotter(Effect):
     def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
         if layer.parent.name == "_dot":
             return layer.shapes
-        params = {p: self.parameter(p, layer) for p in self.params.keys()}
-        if (
-            params["contourSource"] != "<Default>"
-            and layer.parent.layers[params["contourSource"]]
-        ):
-            sourcelayer = layer.parent.layers[params["contourSource"]]
+        self._resolved_params = {
+            p: self.parameter(p, layer) for p in self.params.keys()
+        }
+        contour_source = self._resolved_params["contourSource"]
+        if contour_source != "<Default>" and layer.parent.layers[contour_source]:
+            sourcelayer = layer.parent.layers[contour_source]
         else:
             sourcelayer = layer
         centers = []
         paths = decomposedPaths(sourcelayer)
-        if params["splitPaths"]:
+        if self._resolved_params["splitPaths"]:
             splitPathsAtIntersections(paths)
         for path in paths:
             for subpath in splitAtForcedNode(path):
-                findCenters(subpath, params, centers, layer.parent.name)
-        new_paths = self.centers_to_paths(centers, params)
+                findCenters(subpath, self._resolved_params, centers, layer.parent.name)
+        new_paths = self.centers_to_paths(centers)
 
         for path in sourcelayer.paths:
             for node in path.nodes:
@@ -349,7 +367,7 @@ class Dotter(Effect):
         else:
             glyph = GSGlyph("_dot")
             self.font.glyphs.append(glyph)
-        size = self.parameter(".dotSize")
+        size = self._resolved_params["dotSize"]
         for master in self.font.masters:
             if glyph.layers[master.id]:
                 layer = glyph.layers[master.id]
@@ -364,15 +382,16 @@ class Dotter(Effect):
                 glyph.layers.append(layer)
             layer.paths.append(makeCircle((0, 0), size / 2))
 
-    def centers_to_paths(self, centers: list[Center], params: dict):
-        if params["preventOverlaps"]:
+    def centers_to_paths(self, centers: list[Center]):
+        dotsize = self._resolved_params["dotSize"]
+        if self._resolved_params["preventOverlaps"]:
             newcenters = []
             # Sort, to put forced points first
             for c in sorted(centers, key=lambda pt: pt.forced, reverse=True):
                 # This could probably be improved...
                 ok = True
                 for nc in newcenters:
-                    if distance(c.pos, nc) < params["dotSize"]:
+                    if distance(c.pos, nc) < dotsize:
                         ok = False
                         break
                 if ok:
@@ -381,16 +400,16 @@ class Dotter(Effect):
             newcenters = [c.pos for c in centers]
 
         # If we are in Glyphsapp, then we want to draw a dot
-        if self.preview:
-            return [makeCircle(c, params["dotSize"] / 2) for c in newcenters]
+        if self.preview or not self.instance:
+            return [makeCircle(c, dotsize / 2) for c in newcenters]
         component_size = self.instance.customParameters[KEY + ".dotSize"]
         components = []
         for center in newcenters:
             comp = GSComponent("_dot", center)
-            if params["dotSize"] != component_size:
+            if dotsize != component_size:
                 comp.scale = (
-                    params["dotSize"] / component_size,
-                    params["dotSize"] / component_size,
+                    dotsize / component_size,
+                    dotsize / component_size,
                 )
             components.append(comp)
         return components
