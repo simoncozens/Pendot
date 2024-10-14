@@ -61,11 +61,36 @@ class Guidelines(Effect):
             left = -gloverlap
             right = layer.width + gloverlap
             quantization = self.parameter("guidelineQuantize", layer)
+            dashlength = 0
+            dashPattern = guideline.get("dashPattern")
+            if dashPattern:
+                dashlength = sum(dashPattern)
+                # dashlength_nogap = sum(dashPattern[:-1])
+                # Adjust quantization to fit the nearest
+                quantization = math.ceil(quantization / dashlength) * dashlength
             if quantization:
                 left = math.floor(left / quantization) * quantization
                 right = math.ceil(right / quantization) * quantization
-            bottomLeft = (left, height)
-            topRight = (right, height + thickness)
-            layerRect = makeRect(bottomLeft, topRight)
-            newshapes.append(layerRect)
+
+            if not dashPattern:
+                lrs = [(left, right)]
+            else:
+                lrs = []
+                while True:
+                    for i in range(0, len(dashPattern), 2):
+                        lrs.append((left, left + dashPattern[i]))
+                        left += dashPattern[i]
+                        if left > right:
+                            break
+                        left += dashPattern[i + 1]
+                        if left > right:
+                            break
+                    if left > right:
+                        break
+
+            for left, right in lrs:
+                bottomLeft = (left, height)
+                topRight = (right, height + thickness)
+                layerRect = makeRect(bottomLeft, topRight)
+                newshapes.append(layerRect)
         return newshapes
