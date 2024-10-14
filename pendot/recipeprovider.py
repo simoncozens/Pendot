@@ -3,7 +3,6 @@ import os
 import glyphsLib
 from gftools.builder.recipeproviders.googlefonts import GFBuilder, DEFAULTS
 from pathlib import Path
-from ninja.ninja_syntax import escape_path
 
 
 log = logging.getLogger("pendot")
@@ -59,11 +58,7 @@ class Pendot(GFBuilder):
                 "operation": "buildTTF",
                 "fontmake_args": self.fontmake_args(self.sources[0]),
             },
-            {
-                "operation": "rename",
-                "name": final_family_name,
-                "args": "--just-family"
-            },
+            {"operation": "rename", "name": final_family_name, "args": "--just-family"},
             self.fix(),
         ]
 

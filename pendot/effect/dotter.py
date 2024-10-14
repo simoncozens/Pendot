@@ -23,7 +23,6 @@ from pendot.utils import (
     distance,
     kurbo_bounds_intersect,
     path_to_kurbo,
-    pathLength,
     seg_to_tuples,
     seg_to_kurbo,
     makeCircle,
