@@ -137,21 +137,21 @@ class OverridableComponent(vanilla.Group):
     def __init__(self, owner, effect, name, basepos, postChange=None):
         super().__init__(basepos)
         label = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name).title()
-        default_param = effect.params[name]
-        self.typecast = type(default_param)
-        if self.typecast == int:
-            self.typecast = safe_int
-        print(label, default_param)
-
-        if isinstance(default_param, bool):
+        param_param = effect.params[name]
+        default = param_param["default"]
+        self.typecast = param_param.get("type", type(default))
+        if self.typecast is bool:
             widgetclass = vanilla.CheckBox
             widgetargs = {"title": ""}
-        elif isinstance(default_param, (int, float)):
+        elif self.typecast is int or self.typecast is float:
+            self.typecast = safe_int
             widgetclass = SteppingTextBox
             widgetargs = {}
-        elif isinstance(default_param, str):
+        elif self.typecast is str:
             widgetclass = vanilla.PopUpButton
-            widgetargs = {"items": self.get_popup_items(name)}
+            widgetargs = {"items": self.get_popup_items(effect, name)}
+        else:
+            Message(f"Unknown type for {name} (type={self.typecast})")
 
         self.owner = owner
         self.target = name
@@ -223,7 +223,9 @@ class OverridableComponent(vanilla.Group):
             return
 
         if not instance.customParameters or thisKey not in instance.customParameters:
-            instance.customParameters[thisKey] = self.effect.params[self.target]
+            instance.customParameters[thisKey] = self.effect.params[self.target][
+                "default"
+            ]
         if instance.customParameters[thisKey]:
             if isinstance(self.defaultwidget, vanilla.PopUpButton):
                 self.defaultwidget.setItem(instance.customParameters[thisKey])
@@ -247,14 +249,12 @@ class OverridableComponent(vanilla.Group):
             else:
                 self.overridewidget.set(layers[0].userData[layer_instance_override])
 
-    def get_popup_items(self, name):
+    def get_popup_items(self, effect, name):
+        if "choices" in effect.params[name]:
+            return effect.params[name]["choices"]
         # Here is where we hard-code the stuff we can't automatically compute
         if name == "counterSource":
             return ["<Default>"] + [l.name for l in Glyphs.font.masters]
-        if name in ["startCap", "endCap"]:
-            return ["round", "square", "circle"]
-        if name == "joinType":
-            return ["round", "bevel", "mitre", "circle"]
         else:
             return ["oops " + name]
 
@@ -314,15 +314,17 @@ class PendotDesigner:
                     basepos = (10, basepos[1] + 30, -10, 30)
             else:
                 # The guidelines tab is just, as it were, built different
+                metrics = Glyphs.font.masters[0].metrics
+                # Georg keeps changing the type of this object.
+                if callable(metrics):
+                    metrics = metrics()
                 columnDescriptions = [
                     {
                         "identifier": "height",
                         "title": "Height",
                         "editable": True,
                         "cellClass": vanilla.ComboBoxList2Cell,
-                        "cellClassArguments": {
-                            "items": [m.name for m in Glyphs.font.masters[0].metrics()]
-                        },
+                        "cellClassArguments": {"items": [m.name for m in metrics]},
                     },
                     {
                         "identifier": "thickness",
