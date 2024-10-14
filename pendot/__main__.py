@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 
 from glyphsLib import load
@@ -41,8 +42,10 @@ def main(args=None):
         "auto", help="Either dot or stroke a font depending on the instance parameters"
     )
     auto_parser.add_argument("--output", "-o", help="Output font file")
+    auto_parser.add_argument("--config", help="JSON configuration as text")
+    auto_parser.add_argument("--config-file", help="JSON configuration file")
     auto_parser.add_argument("input", help="Input font file")
-    auto_parser.add_argument("instance", help="Instance name")
+    auto_parser.add_argument("instance", help="Instance name", nargs="?")
 
     dot_parser = subparsers.add_parser("dot", help="Add dots to a font")
     dot_parser.add_argument("--output", "-o", help="Output font file")
@@ -71,7 +74,13 @@ def main(args=None):
     gsinstance = find_instance(font, args.instance)
 
     if args.command == "auto":
-        effects = create_effects(font, gsinstance, args.__dict__)
+        overrides = {}
+        if args.config:
+            overrides = json.loads(args.config)
+        if args.config_file:
+            with open(args.config_file) as f:
+                overrides = json.load(f)
+        effects = create_effects(font, gsinstance, overrides)
     elif args.command == "dot":
         effects = [Dotter(font, gsinstance, args.__dict__)]
     elif args.command == "stroke":
