@@ -1,5 +1,7 @@
+import math
 from typing import List
 
+from pendot.constants import KEY
 from pendot.effect import Effect
 from pendot.glyphsbridge import GSLayer, GSShape
 from pendot.utils import makeRect
@@ -14,6 +16,7 @@ class Guidelines(Effect):
             {"height": "Ascender", "thickness": 10},
         ],
         "guidelineOverlap": 0,
+        "guidelineQuantize": 0,
     }
 
     @property
@@ -22,6 +25,8 @@ class Guidelines(Effect):
 
     def process_layer_shapes(self, layer: GSLayer, shapes: List[GSShape]):
         if not layer.master:
+            return []
+        if layer.parent.userData.get(KEY + ".disableGuidelines"):
             return []
         gloverlap = self.parameter("guidelineOverlap", layer)
         guidelines = self.parameter("guidelines", layer)
@@ -53,8 +58,14 @@ class Guidelines(Effect):
             except ValueError:
                 continue
 
-            bottomLeft = (-gloverlap, height)
-            topRight = (layer.width + gloverlap, height + thickness)
+            left = -gloverlap
+            right = layer.width + gloverlap
+            quantization = self.parameter("guidelineQuantize", layer)
+            if quantization:
+                left = math.floor(left / quantization) * quantization
+                right = math.ceil(right / quantization) * quantization
+            bottomLeft = (left, height)
+            topRight = (right, height + thickness)
             layerRect = makeRect(bottomLeft, topRight)
             newshapes.append(layerRect)
         return newshapes
