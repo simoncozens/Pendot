@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pendot"
 description = "Utility for creating dotted and stroked handwriting fonts"
-readme = "README.md"
+readme = "pendot/README.md"
 dynamic = ["version"]
 authors = [
   { name = "Simon Cozens", email = "simon@simon-cozens.org" }
