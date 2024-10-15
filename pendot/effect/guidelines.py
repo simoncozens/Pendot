@@ -55,7 +55,7 @@ class Guidelines(Effect):
         }
         for guideline in guidelines:
             height, thickness = guideline["height"], guideline["thickness"]
-            if height.lower() in metricsdict:
+            if str(height).lower() in metricsdict:
                 height = metricsdict[height.lower()]
             else:
                 try:
