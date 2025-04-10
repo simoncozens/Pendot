@@ -268,6 +268,10 @@ class PendotDesigner:
     def __init__(self):
         self.idempotence = False
         font = Glyphs.font
+        if not Glyphs.font.instances:
+            Message("Create at least one instance before using Pendot Designer")
+            return
+
         self.w = vanilla.Window((600, 600), "Pendot Designer")
         self.w.instanceSelector = LabelledComponent(
             "Instance",
@@ -277,6 +281,7 @@ class PendotDesigner:
         )
         self.w.instanceSummary = vanilla.TextBox("auto", "")
         self.widget_reloaders = []
+            
         instance = self.selectedInstance or Glyphs.font.instances[0]
         self.effects = [
             Dotter(font, instance),

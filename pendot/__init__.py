@@ -40,7 +40,7 @@ def create_effects(
     if args is not None and args.get("effects"):
         effectlist = args["effects"]
     elif instance:
-        effectlist = instance.customParameters[KEY + ".effects"]
+        effectlist = instance.customParameters[KEY + ".effects"] or []
     if isinstance(effectlist, str):
         effectlist = [effectlist]
     effects = []
