@@ -13,7 +13,9 @@ import AppKit
 import vanilla
 from GlyphsApp import Glyphs, GSApplication, GSFontMaster, GSLayer
 
+# Support new and old names
 sys.path.append(str(Path(__file__).parent.parent / "Plugins" / "Dotter"))
+sys.path.append(str(Path(__file__).parent.parent / "Plugins" / "Pendot"))
 
 from pendot.constants import KEY, PREVIEW_MASTER_NAME, QUICK_PREVIEW_LAYER_NAME
 from pendot.effect.dotter import Dotter
