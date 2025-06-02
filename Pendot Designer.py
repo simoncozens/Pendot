@@ -327,13 +327,18 @@ class PendotDesigner:
                 # Georg keeps changing the type of this object.
                 if callable(metrics):
                     metrics = metrics()
+                # It changed again, now it's a dictionary
+                try:
+                    metric_names = [metrics[m].name for m in metrics]
+                except Exception:
+                    metric_names = [m.name for m in metrics]
                 columnDescriptions = [
                     {
                         "identifier": "height",
                         "title": "Height",
                         "editable": True,
                         "cellClass": vanilla.ComboBoxList2Cell,
-                        "cellClassArguments": {"items": [m.name for m in metrics]},
+                        "cellClassArguments": {"items": metric_names},
                     },
                     {
                         "identifier": "thickness",
