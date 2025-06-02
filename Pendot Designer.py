@@ -511,7 +511,7 @@ class PendotDesigner:
         Glyphs.removeCallback(self.create_layer_preview)
         if Glyphs.font:
             # Make quick preview layer invisible
-            for layer in Glyphs.font.selectedLayers:
+            for layer in Glyphs.font.selectedLayers or []:
                 glyph = layer.parent
                 if glyph.layers[QUICK_PREVIEW_LAYER_NAME]:
                     glyph.layers[QUICK_PREVIEW_LAYER_NAME].visible = False
@@ -567,7 +567,7 @@ class PendotDesigner:
             ", ".join(effect.description() for effect in effects)
         )
 
-        for layer in Glyphs.font.selectedLayers:
+        for layer in Glyphs.font.selectedLayers or []:
             if (
                 layer.name == QUICK_PREVIEW_LAYER_NAME
                 or layer.name == PREVIEW_MASTER_NAME
