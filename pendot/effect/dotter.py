@@ -405,7 +405,7 @@ class Dotter(Effect):
         component_size = self.instance.customParameters[KEY + ".dotSize"]
         components = []
         for center in newcenters:
-            comp = GSComponent("_dot", center)
+            comp = GSComponent("_dot", (int(round(center[0])), int(round(center[1]))))
             if dotsize != component_size:
                 comp.scale = (
                     dotsize / component_size,
