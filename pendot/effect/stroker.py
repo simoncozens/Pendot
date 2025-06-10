@@ -88,7 +88,7 @@ class Stroker(Effect):
             raise ValueError("Unknown join type")
 
         height = self.parameter("strokerHeight", layer)
-        if height is None:
+        if height is None or not height:
             height = self.parameter("strokerWidth", layer)
 
         result = cws_rust(

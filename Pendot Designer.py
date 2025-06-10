@@ -202,9 +202,15 @@ class OverridableComponent(vanilla.Group):
         instance = self.owner.selectedInstance
         thisKey = KEY + "." + self.target
         if isinstance(self.defaultwidget, vanilla.PopUpButton):
-            instance.customParameters[thisKey] = self.typecast(sender.getItem())
+            casted = self.typecast(sender.getItem())
         else:
-            instance.customParameters[thisKey] = self.typecast(sender.get())
+            casted = self.typecast(sender.get())
+        # print(f"Updating {thisKey} to {casted} ({type(casted)})")
+        # if not isinstance(casted, NSNull)
+        if casted is None:
+            del instance.customParameters[thisKey]
+        else:
+            instance.customParameters[thisKey] = casted
         if self.postChange:
             self.postChange(self)
 
@@ -283,7 +289,7 @@ class PendotDesigner:
         )
         self.w.instanceSummary = vanilla.TextBox("auto", "")
         self.widget_reloaders = []
-            
+
         instance = self.selectedInstance or Glyphs.font.instances[0]
         self.effects = [
             Dotter(font, instance),
