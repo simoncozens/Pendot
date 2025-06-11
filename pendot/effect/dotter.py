@@ -411,5 +411,6 @@ class Dotter(Effect):
                     dotsize / component_size,
                     dotsize / component_size,
                 )
+            comp.alignment = -1 # Gross
             components.append(comp)
         return components
