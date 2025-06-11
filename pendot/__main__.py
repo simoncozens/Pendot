@@ -86,7 +86,15 @@ def main(args=None):
         if args.config_file:
             with open(args.config_file) as f:
                 overrides = json.load(f)
+        if not args.instance and not args.config and not args.config_file:
+            print(
+                "No instance or config provided, don't know what effects to add. Try adding an instance name on the command line."
+            )
+            sys.exit(1)
         effects = create_effects(font, gsinstance, overrides)
+        if not effects:
+            print("No effects found, nothing to do.")
+            sys.exit(0)
     elif args.command == "dot":
         effects = [Dotter(font, gsinstance, args.__dict__)]
     elif args.command == "stroke":
@@ -97,7 +105,9 @@ def main(args=None):
         print("Unknown command", args.command)
         sys.exit(1)
 
-    transform_font(font, effects)
+    transform_font(font, effects, gsinstance)
+    if output.endswith(".glyphspackage"):
+        output = output.replace(".glyphspackage", ".glyphs")
     print("Saving to", output)
     font.save(output)
 
