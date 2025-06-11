@@ -102,7 +102,6 @@ def transform_font(
 
         for layer in relevant_layers:
             if layer.layerId == relevant_master.id:
-                print("Processing layer ", layer)
                 results[layer] = transform_layer(layer, effects)
     for layer, shapes in results.items():
         if shapes:
