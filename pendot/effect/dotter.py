@@ -95,7 +95,12 @@ def splitSegment(seg: TupleSegment, t: float) -> tuple[TupleSegment, TupleSegmen
 def splitAtForcedNode(path: GSPath):
     # Iterator, yields GSPaths
     new_path = GSPath()
-    new_path.closed = False
+    if not any(isForced(n) for n in path.nodes):
+        # No forced nodes, return the original path
+        new_path.nodes = [GSNode(n.position, n.type) for n in path.nodes]
+        new_path.closed = path.closed
+        yield new_path
+        return
     for n in path.nodes:
         new_path.nodes.append(GSNode(n.position, n.type))
         if isForced(n):
@@ -118,6 +123,7 @@ def interpolate_lut(t, lut):
 
 def findCenters(path: GSPath, params: dict, centers: list[Center], name: str):
     segs = [seg_to_kurbo(seg) for seg in path.segments]
+
     if not segs or not segs[0]:
         return
 
@@ -350,6 +356,9 @@ class Dotter(Effect):
         paths = decomposedPaths(sourcelayer)
         if self._resolved_params["splitPaths"]:
             splitPathsAtIntersections(paths)
+        import IPython
+
+        IPython.embed()
         for path in paths:
             for subpath in splitAtForcedNode(path):
                 findCenters(subpath, self._resolved_params, centers, layer.parent.name)
@@ -411,6 +420,6 @@ class Dotter(Effect):
                     dotsize / component_size,
                     dotsize / component_size,
                 )
-            comp.alignment = -1 # Gross
+            comp.alignment = -1  # Gross
             components.append(comp)
         return components
