@@ -356,9 +356,6 @@ class Dotter(Effect):
         paths = decomposedPaths(sourcelayer)
         if self._resolved_params["splitPaths"]:
             splitPathsAtIntersections(paths)
-        import IPython
-
-        IPython.embed()
         for path in paths:
             for subpath in splitAtForcedNode(path):
                 findCenters(subpath, self._resolved_params, centers, layer.parent.name)
